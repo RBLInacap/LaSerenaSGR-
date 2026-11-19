@@ -108,6 +108,106 @@ class AvanceItemMedicionTests(TestCase):
         self.assertEqual(item.calcular_ponderado(self.funcionario), 25.0)
 
 
+class UnificarColumnasDuplicadasTests(TestCase):
+    """Fase 2 de docs/COLUMNAS_DUPLICADAS.md."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.hoy = timezone.localdate()
+        cls.delegacion = Delegacion.objects.create(nombre='Delegación Fase 2', codigo='DF2')
+        cls.funcionario = Usuario.objects.create_user(
+            username='funcionario.fase2', password='TestPassword123!', delegacion=cls.delegacion,
+        )
+        cls.periodo = PeriodoMedicion.objects.create(
+            nombre='Período Fase 2',
+            fecha_inicio=cls.hoy - timedelta(days=5),
+            fecha_termino=cls.hoy + timedelta(days=5),
+        )
+
+    def setUp(self):
+        # Datos anteriores a la fase 1: se fuerzan divergencias saltándose save().
+        self.actividad = Actividad.objects.create(
+            funcionario=self.funcionario, delegacion=self.delegacion,
+            actividad_solicitud='Solicitud vigente', accion_ejecutada='',
+        )
+        Actividad.objects.filter(pk=self.actividad.pk).update(
+            solicitud_problema='Solicitud antigua', accion='Acción solo heredada',
+        )
+        self.compromiso = CompromisoAgenda.objects.create(
+            delegacion=self.delegacion, responsable=self.funcionario,
+            solicitante='Vecino', fecha_comprometida=self.hoy,
+        )
+        CompromisoAgenda.todos.filter(pk=self.compromiso.pk).update(
+            fecha_compromiso=self.hoy - timedelta(days=3),
+        )
+        PeriodoMedicion.objects.filter(pk=self.periodo.pk).update(umbral_verde=1.0)
+        self.evidencia = Evidencia.objects.create(actividad=self.actividad)
+        Evidencia.todas.filter(pk=self.evidencia.pk).update(
+            fecha_evidencia=self.hoy + timedelta(days=1),
+            archivo='evidencias/2026/01/antigua.jpg',
+            archivo_foto='',
+        )
+
+    def _ejecutar(self, *args):
+        from io import StringIO
+
+        from django.core.management import call_command
+
+        salida = StringIO()
+        call_command('unificar_columnas_duplicadas', *args, stdout=salida)
+        return salida.getvalue()
+
+    def test_simulacion_no_modifica_nada(self):
+        from sgr_app.models import RegistroAuditoria
+
+        salida = self._ejecutar()
+
+        self.assertIn('SIMULACIÓN', salida)
+        self.actividad.refresh_from_db()
+        self.assertEqual(self.actividad.solicitud_problema, 'Solicitud antigua')
+        self.assertFalse(
+            RegistroAuditoria.objects.filter(accion='UNIFICAR_COLUMNA_DUPLICADA').exists()
+        )
+
+    def test_aplicar_unifica_a_favor_de_la_vigente_y_audita(self):
+        from sgr_app.models import RegistroAuditoria
+
+        self._ejecutar('--aplicar')
+
+        self.actividad.refresh_from_db()
+        self.assertEqual(self.actividad.solicitud_problema, 'Solicitud vigente')
+        self.assertEqual(self.actividad.accion_ejecutada, 'Acción solo heredada')
+        self.compromiso.refresh_from_db()
+        self.assertEqual(self.compromiso.fecha_compromiso, self.hoy)
+        self.periodo.refresh_from_db()
+        self.assertEqual(self.periodo.umbral_verde, self.periodo.umbral_semaforo_verde)
+        evidencia = Evidencia.todas.get(pk=self.evidencia.pk)
+        self.assertEqual(evidencia.archivo_foto.name, 'evidencias/2026/01/antigua.jpg')
+        self.assertEqual(evidencia.archivo.name, 'evidencias/2026/01/antigua.jpg')
+        self.assertEqual(evidencia.fecha_evidencia, timezone.localdate(evidencia.fecha_subida))
+
+        auditoria = RegistroAuditoria.objects.get(
+            accion='UNIFICAR_COLUMNA_DUPLICADA', entidad='Actividad',
+            identificador=str(self.actividad.pk),
+        )
+        self.assertEqual(auditoria.valor_anterior['solicitud_problema'], 'Solicitud antigua')
+        self.assertEqual(auditoria.valor_nuevo['accion_ejecutada'], 'Acción solo heredada')
+        self.assertEqual(
+            RegistroAuditoria.objects.filter(accion='UNIFICAR_COLUMNA_DUPLICADA').count(), 4,
+        )
+
+    def test_es_idempotente(self):
+        from sgr_app.models import RegistroAuditoria
+
+        self._ejecutar('--aplicar')
+        salida = self._ejecutar('--aplicar')
+
+        self.assertIn('Total: 0 registro(s)', salida)
+        self.assertEqual(
+            RegistroAuditoria.objects.filter(accion='UNIFICAR_COLUMNA_DUPLICADA').count(), 4,
+        )
+
+
 class RelacionesSinBorradoEnCascadaTests(TestCase):
     """Normativa: ninguna relación del SGR puede borrar registros en cadena."""
 

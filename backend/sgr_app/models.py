@@ -2022,7 +2022,7 @@ class CompromisoAgenda(models.Model):
 class ObservacionCompromiso(models.Model):
     compromiso = models.ForeignKey(
         CompromisoAgenda,
-        on_delete=models.SET_NULL,
+        on_delete=models.PROTECT,
         null=True,
         blank=True,
         related_name='historial_observaciones',
@@ -2099,7 +2099,7 @@ class Evidencia(models.Model):
     url_foto_simulada = models.URLField(max_length=500, blank=True, null=True)
     url_foto_simulada_2 = models.URLField(max_length=500, blank=True, null=True)
     url_foto_simulada_3 = models.URLField(max_length=500, blank=True, null=True)
-    fecha_evidencia = models.DateField(default=timezone.now, blank=True, verbose_name="Fecha de Carga")
+    fecha_evidencia = models.DateField(default=timezone.localdate, blank=True, verbose_name="Fecha de Carga")
     metadatos = models.JSONField(blank=True, null=True, verbose_name="Metadatos (GPS, formato, peso)")
     subido_por = models.ForeignKey(
         Usuario,

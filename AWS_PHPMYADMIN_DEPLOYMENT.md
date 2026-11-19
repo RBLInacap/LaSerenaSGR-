@@ -268,11 +268,13 @@ run_django createsuperuser
 run_django test_aws          # comprueba el acceso al bucket S3
 ```
 
-`migrate` crea todas las tablas (migraciones `0001` a `0030`) en la base vacía. No ejecutes SQL manual ni copies `db.sqlite3`. **No ejecutes `poblar_sgr`** en una base con datos reales: genera datos de demostración.
+`migrate` crea todas las tablas (todas las migraciones de `backend/sgr_app/migrations/`) en la base vacía. No ejecutes SQL manual ni copies `db.sqlite3`. **No ejecutes `poblar_sgr`** en una base con datos reales: genera datos de demostración.
+
+> **No importes en la EC2 un `.sql` exportado desde WAMP/phpMyAdmin de Windows.** Varias tablas tienen mayúsculas (`Actividades`, `Auditorias`, `Roles`…). MySQL en Windows las guarda en minúsculas y en Linux los nombres distinguen mayúsculas: Django no encontraría las tablas y los triggers de `Auditorias` no se aplicarían. Traslada los datos solo con `dumpdata`/`loaddata`, como se indica abajo.
 
 ### Si necesitas trasladar datos existentes
 
-Las migraciones crean la estructura, no los registros. Desde el computador que tiene `backend/db.sqlite3`:
+Las migraciones crean la estructura, no los registros. Desde el computador que tiene los datos (usa `USE_MYSQL=False` si están en `backend/db.sqlite3`, o `USE_MYSQL=True` con WAMP encendido si están en MySQL):
 
 ```powershell
 cd backend
@@ -288,6 +290,11 @@ En la instancia (después de `migrate`):
 sudo chown sgr:sgr /tmp/sgr-data.json && sudo chmod 600 /tmp/sgr-data.json
 run_django loaddata /tmp/sgr-data.json
 sudo rm -f /tmp/sgr-data.json
+
+# Datos anteriores a la unificación de columnas duplicadas: primero simula, luego aplica.
+run_django unificar_columnas_duplicadas
+run_django unificar_columnas_duplicadas --aplicar
+run_django verificar_coherencia
 ```
 
 El archivo contiene datos personales y hashes de contraseñas: no lo subas a GitHub y bórralo al terminar. Las fotos de `backend/media/` no viajan en ese archivo; súbelas al bucket con AWS CLI (`aws s3 sync .\backend\media\ s3://NOMBRE-DEL-BUCKET/`), usando las credenciales temporales de *AWS Details* del Learner Lab.
@@ -585,6 +592,8 @@ sudo systemctl restart sgr
 ```
 
 Antes de `migrate`, ejecuta `run_django respaldar_base_datos` (sección 10.1).
+
+Si la instancia ya tenía datos de una versión anterior a la migración `0044`, ejecuta una vez `run_django unificar_columnas_duplicadas` (simulación) y luego `run_django unificar_columnas_duplicadas --aplicar` para alinear las columnas duplicadas heredadas. Cada cambio queda en la auditoría.
 
 Si actualizas desde una versión sin JWT, agrega antes a `/etc/sgr.env` las variables `JWT_*` y `API_*` de la sección 5. `migrate` crea las tablas de la lista negra de tokens.
 

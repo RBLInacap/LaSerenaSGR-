@@ -177,7 +177,7 @@ def _chequeos_negocio():
          CompromisoAgenda.objects.filter(actividad__isnull=False).exclude(delegacion_id=F('actividad__delegacion_id')),
          'Revisar a qué territorio corresponde.'),
         ('compromiso.observacion_sin_compromiso', INFO, 'Observaciones de compromiso sin compromiso asociado',
-         ObservacionCompromiso.objects.filter(compromiso__isnull=True), 'Cambiar on_delete a CASCADE o PROTECT (fase 2).'),
+         ObservacionCompromiso.objects.filter(compromiso__isnull=True), 'Registros anteriores a PROTECT (migración 0044); revisar desde la auditoría.'),
 
         # Evidencias
         ('evidencia.estado_invalido', CRITICO, 'Evidencias con un estado fuera de la lista válida',

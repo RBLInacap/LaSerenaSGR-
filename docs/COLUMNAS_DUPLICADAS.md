@@ -43,7 +43,7 @@ Las escrituras masivas con `QuerySet.update()` no pasan por `save()`: no deben u
 | Fase | Contenido | Estado |
 |---|---|---|
 | 1 | Sincronización en `save()`, lecturas desde la vigente, columna heredada de solo lectura en la API, chequeos en `verificar_coherencia` | ✅ Implementada |
-| 2 | Migración de datos: completar valores vacíos y resolver diferencias a favor de la vigente, guardando el valor anterior en la auditoría | Pendiente |
+| 2 | Corrección de datos anteriores: completar valores vacíos y resolver diferencias a favor de la vigente, guardando el valor anterior en la auditoría (`python manage.py unificar_columnas_duplicadas --aplicar`) | ✅ Implementada |
 | 3 | Congelar las heredadas (ningún código las lee ni escribe). Eliminarlas solo con aprobación, porque borrar una columna borra datos | Pendiente, requiere decisión |
 
 ## Revisar la base real
@@ -52,4 +52,17 @@ Las escrituras masivas con `QuerySet.update()` no pasan por `save()`: no deben u
 python manage.py verificar_coherencia
 ```
 
-Los hallazgos con código `duplicada.*`, `compromiso.fechas_divergentes`, `actividad.item_divergente` y `periodo.umbral_legado_divergente` corresponden a estas columnas. Un registro con diferencias se corrige solo la próxima vez que se guarda; la fase 2 los corregirá todos de una vez.
+Los hallazgos con código `duplicada.*`, `compromiso.fechas_divergentes`, `actividad.item_divergente` y `periodo.umbral_legado_divergente` corresponden a estas columnas. Un registro con diferencias se corrige solo la próxima vez que se guarda; para corregirlos todos de una vez (fase 2):
+
+```bash
+python manage.py respaldar_base_datos                     # respaldo previo
+python manage.py unificar_columnas_duplicadas             # simulación: informa qué cambiaría
+python manage.py unificar_columnas_duplicadas --aplicar   # corrige y audita cada registro
+```
+
+Detalles de la fase 2 (`sgr_app/services/columnas_duplicadas.py`):
+
+- Escribe fila por fila con `update()` y un evento de auditoría `UNIFICAR_COLUMNA_DUPLICADA` por registro, con los valores anteriores y nuevos. No pasa por `save()` para no disparar efectos secundarios (por ejemplo, recalcular el estado de un compromiso).
+- **Evidencias:** la foto heredada `archivo` solo completa `archivo_foto` cuando está vacía; `archivo` nunca se sobrescribe. `fecha_evidencia` se iguala al día local de `fecha_subida`. La causa de esa divergencia era el valor por defecto en UTC, corregido en la migración `0044`.
+- **No se tocan:** `Actividad.item` cuando `item_medicion` está vacío (cambiaría los indicadores), el vínculo recíproco Actividad ↔ Compromiso (requiere revisión manual) y la auditoría (inmutable).
+- Es idempotente: una segunda ejecución informa 0 cambios.
