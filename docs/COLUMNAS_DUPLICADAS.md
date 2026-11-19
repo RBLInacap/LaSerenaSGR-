@@ -1,0 +1,55 @@
+# Columnas duplicadas heredadas
+
+Algunas tablas guardan el mismo dato en dos columnas: la **vigente**, que usa la lógica actual, y una **heredada** de versiones anteriores. Este documento registra cuáles son, cómo se mantienen alineadas y qué falta para unificarlas.
+
+Por normativa ningún dato se elimina. Por eso ninguna columna se borra sin una decisión explícita, y cualquier valor que se reemplace queda en la auditoría.
+
+## Inventario
+
+| Tabla | Vigente | Heredada | Cómo se mantiene alineada |
+|---|---|---|---|
+| Compromisos | `fecha_comprometida` | `fecha_compromiso` | `CompromisoAgenda.save()` |
+| Compromisos | `observacion` | `observaciones` | `CompromisoAgenda.save()`; de solo lectura en la API |
+| Actividades | `actividad_solicitud` | `solicitud_problema` | `Actividad.save()` |
+| Actividades | `accion_ejecutada` | `accion` | `Actividad.save()` |
+| Actividades | `item_medicion` | `item` | `Actividad.save()` (el heredado nunca completa al vigente) |
+| Actividades ↔ Compromisos | `CompromisoAgenda.actividad` | `Actividad.compromiso_agenda` | A mano en `web_views.py`; lo vigila `verificar_coherencia` |
+| Períodos | `umbral_semaforo_verde` / `_ambar` | `umbral_verde` / `umbral_ambar` | `PeriodoMedicion.save()` |
+| Evidencias | `archivo_foto` | `archivo` | Ya no se escribe; se lee solo como respaldo en cargas antiguas |
+| Evidencias | `fecha_subida` | `fecha_evidencia` | Ambas se fijan al crear la evidencia |
+| Auditoría | `funcionario`, `identificador_registro`, `fecha_auditoria` | `usuario`, `identificador`, `fecha` | `RegistroAuditoria.save()`; registros inmutables |
+
+También hay un sistema de metas paralelo y heredado (`MetaModel` / `Indicador`, tablas `Metas` e `Indicadores`). Se sigue actualizando, pero los tableros calculan con `ItemMedicion` y `services/calculos.py`.
+
+**No son duplicados**, aunque lo parezcan:
+- **Fotografías históricas del nombre:** `tipo_actividad_nombre`, `catalogo_servicio_nombre`, el texto de `AtencionSocial.tipo_atencion` y los campos `AlertaGenerada.regla_*` guardan el valor que tenía el catálogo en ese momento, para que el historial no cambie.
+- **Valores derivados:** `Solicitante.apellido` y `CasoSocial.persona_clave`.
+- **Columnas con significados distintos:** `PeriodoMedicion.cerrado` frente a `estado`, y `RegistroAuditoria.evento` frente a `accion`.
+
+## Reglas de sincronización (fase 1)
+
+Las aplica `sincronizar_columnas_duplicadas()` en `sgr_app/models.py` cada vez que se guarda un registro, venga el cambio de la web, la API, la shell o un comando:
+
+1. **Si la vigente tiene valor,** la heredada pasa a tener ese mismo valor.
+2. **Si la vigente está vacía y la heredada no,** la vigente se completa con la heredada. La excepción es `item`: completarlo cambiaría los indicadores.
+3. **Si la heredada tenía un valor distinto,** se reemplaza y el valor anterior queda en la auditoría (`accion = SINCRONIZAR_COLUMNA_DUPLICADA`).
+4. **Con `save(update_fields=[...])`,** la columna heredada se agrega a los campos que se guardan.
+5. **Toda la lógica lee la columna vigente:** semáforo, panel, alertas, tubo de trabajo, vencimientos y orden por defecto.
+
+Las escrituras masivas con `QuerySet.update()` no pasan por `save()`: no deben usarse sobre estas columnas.
+
+## Fases
+
+| Fase | Contenido | Estado |
+|---|---|---|
+| 1 | Sincronización en `save()`, lecturas desde la vigente, columna heredada de solo lectura en la API, chequeos en `verificar_coherencia` | ✅ Implementada |
+| 2 | Migración de datos: completar valores vacíos y resolver diferencias a favor de la vigente, guardando el valor anterior en la auditoría | Pendiente |
+| 3 | Congelar las heredadas (ningún código las lee ni escribe). Eliminarlas solo con aprobación, porque borrar una columna borra datos | Pendiente, requiere decisión |
+
+## Revisar la base real
+
+```bash
+python manage.py verificar_coherencia
+```
+
+Los hallazgos con código `duplicada.*`, `compromiso.fechas_divergentes`, `actividad.item_divergente` y `periodo.umbral_legado_divergente` corresponden a estas columnas. Un registro con diferencias se corrige solo la próxima vez que se guarda; la fase 2 los corregirá todos de una vez.
