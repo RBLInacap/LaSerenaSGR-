@@ -44,6 +44,21 @@ ACTIVIDAD_AREAS_APOYO = (
 )
 
 
+
+
+class FechaInput(forms.DateInput):
+    """Selector de fecha HTML5.
+
+    Un `<input type="date">` solo acepta el valor en formato ISO (AAAA-MM-DD).
+    Con el formato local (DD/MM/AAAA) el navegador mostraba el campo vacío al
+    crear o editar (p. ej., períodos y compromisos).
+    """
+
+    input_type = 'date'
+
+    def __init__(self, attrs=None, format='%Y-%m-%d'):
+        super().__init__(attrs=attrs, format=format)
+
 class AjusteIncentivoForm(forms.Form):
     funcionario = forms.ModelChoiceField(
         queryset=Usuario.objects.none(),
@@ -114,7 +129,7 @@ class CompromisoAgendaForm(forms.ModelForm):
     )
     fecha_comprometida = forms.DateField(
         label='Fecha comprometida',
-        widget=forms.DateInput(attrs={'type': 'date'}),
+        widget=FechaInput(),
     )
 
     class Meta:
@@ -481,10 +496,7 @@ class CasoSocialForm(forms.ModelForm):
         label='Fecha apertura',
         localize=False,
         input_formats=['%Y-%m-%d'],
-        widget=forms.DateInput(
-            format='%Y-%m-%d',
-            attrs={'type': 'date'},
-        ),
+        widget=FechaInput(),
     )
 
     class Meta:
@@ -531,7 +543,7 @@ class AtencionSocialForm(forms.Form):
     fecha_gestion = forms.DateField(
         label='Fecha',
         error_messages={'required': 'La fecha de esta gestión es obligatoria.'},
-        widget=forms.DateInput(attrs={'type': 'date'}),
+        widget=FechaInput(),
     )
 
     def __init__(self, *args, etapa, area_id=None, **kwargs):
@@ -900,8 +912,8 @@ class MantenedorPeriodoForm(MantenedorModelForm):
             'estado': 'Activo',
         }
         widgets = {
-            'fecha_inicio': forms.DateInput(attrs={'type': 'date'}),
-            'fecha_termino': forms.DateInput(attrs={'type': 'date'}),
+            'fecha_inicio': FechaInput(),
+            'fecha_termino': FechaInput(),
             'umbral_semaforo_verde': forms.NumberInput(attrs={'step': '0.1', 'min': '0'}),
             'umbral_semaforo_ambar': forms.NumberInput(attrs={'step': '0.1', 'min': '0'}),
             'umbral_colectivo': forms.NumberInput(attrs={'step': '0.1', 'min': '0'}),
@@ -937,17 +949,14 @@ class MantenedorPeriodoForm(MantenedorModelForm):
             self.initial.setdefault('trimestre', (today.month - 1) // 3 + 1)
             self.initial.setdefault('dias_computables', 1)
 
+        # CU-12: un período puede comenzar en el pasado (p. ej., el trimestre en
+        # curso al poner el sistema en marcha); solo se acota hacia el futuro.
         for field_name in ('fecha_inicio', 'fecha_termino'):
-            minimum_date = today
             maximum_field_date = maximum_date
             current_value = getattr(self.instance, field_name, None)
             if self.instance.pk and current_value:
-                minimum_date = min(minimum_date, current_value)
                 maximum_field_date = max(maximum_field_date, current_value)
-            self.fields[field_name].widget.attrs.update({
-                'min': minimum_date.isoformat(),
-                'max': maximum_field_date.isoformat(),
-            })
+            self.fields[field_name].widget.attrs['max'] = maximum_field_date.isoformat()
 
     def clean(self):
         cleaned_data = super().clean()
@@ -1007,12 +1016,11 @@ class MantenedorPeriodoForm(MantenedorModelForm):
             if (
                 value
                 and value != previous_value
-                and not today <= value <= maximum_date
+                and value > maximum_date
             ):
                 self.add_error(
                     field_name,
-                    f'La fecha debe estar entre {today:%d/%m/%Y} y '
-                    f'{maximum_date:%d/%m/%Y}.',
+                    f'La fecha no puede ser posterior a {maximum_date:%d/%m/%Y}.',
                 )
 
         if fecha_inicio and fecha_termino and fecha_termino < fecha_inicio:
@@ -1150,6 +1158,18 @@ class FuncionarioForm(MantenedorModelForm):
             self.fields['roles'].queryset = (
                 Rol.objects.filter(estado=True) | roles_actuales
             ).distinct().order_by('nombre_rol')
+            # Igual que con los roles: el valor actual se ofrece aunque esté
+            # desactivado, para que editar no obligue a cambiarlo.
+            for campo, modelo, activo in (
+                ('area_entidad', Area, 'estado'),
+                ('cargo', Cargo, 'activo'),
+                ('delegacion', Delegacion, 'activo'),
+            ):
+                actual = getattr(self.instance, f'{campo}_id')
+                if actual:
+                    self.fields[campo].queryset = modelo.objects.filter(
+                        Q(**{activo: True}) | Q(pk=actual)
+                    ).order_by('nombre')
             run = self.instance.rut_anonimizado or ''
             apellidos = (self.instance.last_name or '').split(maxsplit=1)
             self.initial.update({
@@ -1161,6 +1181,11 @@ class FuncionarioForm(MantenedorModelForm):
                 'estado': self.instance.is_active,
                 'roles': roles_actuales,
                 'rol': self.instance.rol,
+                # Sin estos valores el formulario de edición los mostraba vacíos y,
+                # al guardar, se perdían el cargo y la delegación del funcionario.
+                'area_entidad': self.instance.area_entidad_id,
+                'cargo': self.instance.cargo_id,
+                'delegacion': self.instance.delegacion_id,
             })
         else:
             self.fields['estado'].initial = True
@@ -1516,7 +1541,7 @@ class ActividadTerrenoForm(forms.Form):
         label='Funcionario responsable',
     )
     fecha_actividad = forms.DateField(
-        widget=forms.DateInput(attrs={'type': 'date'}),
+        widget=FechaInput(),
         label='Fecha de actividad',
     )
     item_medicion_id = forms.ModelChoiceField(
@@ -1559,7 +1584,7 @@ class ActividadTerrenoForm(forms.Form):
     crear_compromiso = forms.BooleanField(required=False, label='Crear compromiso de seguimiento')
     compromiso_fecha = forms.DateField(
         required=False,
-        widget=forms.DateInput(attrs={'type': 'date'}),
+        widget=FechaInput(),
         label='Fecha de compromiso',
     )
     compromiso_territorio = forms.ChoiceField(

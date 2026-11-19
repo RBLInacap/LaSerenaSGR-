@@ -301,3 +301,102 @@ class RelacionesSinBorradoEnCascadaTests(TestCase):
         with self.assertRaises(ProtectedError):
             delegacion.delete()
         self.assertTrue(Actividad.objects.filter(delegacion=delegacion).exists())
+
+
+class CorreccionesSimulacionTests(TestCase):
+    """Hallazgos de la simulación de navegación en MariaDB (19/11/2026)."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.area = Area.objects.create(nombre='Área Edición')
+        cls.cargo = Cargo.objects.create(nombre='Cargo Edición', area=cls.area)
+        cls.delegacion = Delegacion.objects.create(nombre='Delegación Edición', codigo='DEDI')
+        cls.admin = Usuario.objects.create_user(
+            username='admin.edicion', password='TestPassword123!', rol=Usuario.Rol.ADMINISTRADOR,
+        )
+        cls.funcionario = Usuario.objects.create_user(
+            username='editado@sim.cl', email='editado@sim.cl', password='TestPassword123!',
+            first_name='Elena', last_name='Díaz Rojas', rut_anonimizado='12.345.678-5',
+            rol=Usuario.Rol.FUNCIONARIO, area_entidad=cls.area, cargo=cls.cargo,
+            delegacion=cls.delegacion,
+        )
+
+    def _datos_como_navegador(self, url):
+        """Envía el formulario tal como lo muestra la página (sin tocar nada)."""
+        from html.parser import HTMLParser
+
+        class Lector(HTMLParser):
+            def __init__(self):
+                super().__init__()
+                self.datos, self._select = {}, None
+
+            def handle_starttag(self, tag, attrs):
+                a = dict(attrs)
+                if tag == 'input' and a.get('name') and a.get('type') not in ('submit', 'checkbox', 'file'):
+                    self.datos.setdefault(a['name'], a.get('value', ''))
+                elif tag == 'input' and a.get('type') == 'checkbox' and 'checked' in a:
+                    self.datos[a['name']] = a.get('value', 'on')
+                elif tag == 'select':
+                    self._select = a.get('name')
+                elif tag == 'option' and self._select and 'selected' in a:
+                    self.datos[self._select] = a.get('value', '')
+
+            def handle_endtag(self, tag):
+                if tag == 'select':
+                    self._select = None
+
+        lector = Lector()
+        lector.feed(self.client.get(url).content.decode())
+        return lector.datos
+
+    def test_editar_funcionario_conserva_area_cargo_y_delegacion(self):
+        self.client.force_login(self.admin)
+        url = f'/mantenedores/funcionarios/{self.funcionario.pk}/modificar/'
+        datos = self._datos_como_navegador(url)
+        self.assertEqual(datos.get('area_entidad'), str(self.area.pk))
+        self.assertEqual(datos.get('cargo'), str(self.cargo.pk))
+        self.assertEqual(datos.get('delegacion'), str(self.delegacion.pk))
+
+        respuesta = self.client.post(url, datos)
+
+        self.assertEqual(respuesta.status_code, 302)
+        self.funcionario.refresh_from_db()
+        self.assertEqual(self.funcionario.cargo_id, self.cargo.pk)
+        self.assertEqual(self.funcionario.delegacion_id, self.delegacion.pk)
+
+    def test_editar_funcionario_con_cargo_desactivado_no_lo_pierde(self):
+        Cargo.objects.filter(pk=self.cargo.pk).update(activo=False)
+        self.client.force_login(self.admin)
+        url = f'/mantenedores/funcionarios/{self.funcionario.pk}/modificar/'
+
+        respuesta = self.client.post(url, self._datos_como_navegador(url))
+
+        self.assertEqual(respuesta.status_code, 302)
+        self.funcionario.refresh_from_db()
+        self.assertEqual(self.funcionario.cargo_id, self.cargo.pk)
+
+    def test_campos_de_fecha_usan_formato_iso_del_navegador(self):
+        from sgr_app.forms import MantenedorPeriodoForm
+
+        periodo = PeriodoMedicion.objects.create(
+            nombre='Período ISO', fecha_inicio=date(2026, 10, 1), fecha_termino=date(2026, 12, 31),
+        )
+        html = str(MantenedorPeriodoForm(instance=periodo)['fecha_inicio'])
+        self.assertIn('type="date"', html)
+        self.assertIn('value="2026-10-01"', html)
+
+    def test_se_crea_el_trimestre_en_curso_aunque_ya_haya_comenzado(self):
+        self.client.force_login(self.admin)
+        hoy = timezone.localdate()
+        inicio = hoy.replace(month=(hoy.month - 1) // 3 * 3 + 1, day=1)
+        if inicio == hoy:
+            inicio = hoy - timedelta(days=1)
+        respuesta = self.client.post('/mantenedores/periodos/crear/', {
+            'nombre': 'Trimestre en curso', 'anio': str(inicio.year),
+            'trimestre': str((inicio.month - 1) // 3 + 1),
+            'fecha_inicio': inicio.isoformat(), 'fecha_termino': (hoy + timedelta(days=30)).isoformat(),
+            'dias_computables': '1', 'umbral_semaforo_verde': '100', 'umbral_semaforo_ambar': '60',
+            'umbral_colectivo': '80', 'tope_cumplimiento': '150', 'estado': 'on',
+        })
+        self.assertEqual(respuesta.status_code, 302)
+        self.assertTrue(PeriodoMedicion.objects.filter(nombre='Trimestre en curso').exists())

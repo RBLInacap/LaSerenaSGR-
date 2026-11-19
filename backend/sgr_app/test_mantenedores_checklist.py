@@ -818,7 +818,8 @@ class MantenedoresChecklistTests(TestCase):
                 record.refresh_from_db()
                 self.assertTrue(getattr(record, active_field))
 
-    def test_period_form_limits_dates_to_today_through_one_year(self):
+    def test_period_form_allows_past_start_and_limits_future_to_one_year(self):
+        """CU-12: el trimestre en curso (que ya comenzó) se puede crear."""
         today = timezone.localdate()
         try:
             maximum_date = today.replace(year=today.year + 1)
@@ -827,22 +828,15 @@ class MantenedoresChecklistTests(TestCase):
 
         valid_form = MantenedorPeriodoForm(data=self.period_form_data(today, today))
         self.assertTrue(valid_form.is_valid(), valid_form.errors)
-        self.assertEqual(
-            valid_form.fields['fecha_inicio'].widget.attrs['min'],
-            today.isoformat(),
-        )
+        self.assertNotIn('min', valid_form.fields['fecha_inicio'].widget.attrs)
         self.assertEqual(
             valid_form.fields['fecha_termino'].widget.attrs['max'],
             maximum_date.isoformat(),
         )
 
-        too_early = today - timedelta(days=1)
-        invalid_form = MantenedorPeriodoForm(
-            data=self.period_form_data(too_early, too_early),
-        )
-        self.assertFalse(invalid_form.is_valid())
-        self.assertIn('fecha_inicio', invalid_form.errors)
-        self.assertIn('fecha_termino', invalid_form.errors)
+        hace_un_mes = today - timedelta(days=30)
+        past_form = MantenedorPeriodoForm(data=self.period_form_data(hace_un_mes, today))
+        self.assertTrue(past_form.is_valid(), past_form.errors)
 
         too_late = maximum_date + timedelta(days=1)
         invalid_form = MantenedorPeriodoForm(
