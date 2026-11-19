@@ -11,6 +11,7 @@ from sgr_app.models import (
     Rol, TipoActividad, ConceptoAjuste, AjusteIncentivo,
 )
 from sgr_app.validators import (
+    normalizar_telefono_chileno,
     normalize_chilean_phone,
     normalize_chilean_rut,
     validate_chilean_rut,
@@ -79,12 +80,11 @@ class DelegacionSerializer(serializers.ModelSerializer):
         return value
 
     def validate_telefono(self, value):
-        # Mismo criterio que el mantenedor web: teléfono fijo, solo dígitos.
-        if value and (not value.isascii() or not value.isdigit()):
-            raise serializers.ValidationError(
-                'El teléfono de la delegación debe contener solo números.'
-            )
-        return value
+        # Mismo criterio que el mantenedor web: fijo o celular, con o sin +56.
+        try:
+            return normalizar_telefono_chileno(value) or None
+        except DjangoValidationError as exc:
+            raise serializers.ValidationError(exc.messages) from exc
 
 
 class CargoSerializer(serializers.ModelSerializer):

@@ -44,7 +44,7 @@ class MantenedoresChecklistTests(TestCase):
             fecha_termino=date(2026, 12, 31),
         )
 
-    def test_delegation_phone_only_accepts_digits(self):
+    def test_delegation_phone_accepts_chilean_numbers_with_or_without_prefix(self):
         form_data = {
             'nombre': 'Delegación prueba',
             'codigo': 'NUM',
@@ -55,11 +55,21 @@ class MantenedoresChecklistTests(TestCase):
         }
         valid_form = DelegacionForm(data=form_data)
         self.assertTrue(valid_form.is_valid(), valid_form.errors)
+        self.assertEqual(valid_form.cleaned_data['telefono'], '+56512206518')
 
-        invalid_form = DelegacionForm(data={**form_data, 'telefono': 'sjdfasdf'})
-        self.assertFalse(invalid_form.is_valid())
-        self.assertIn('telefono', invalid_form.errors)
-        self.assertIn('solo números', invalid_form.errors['telefono'][0])
+        for telefono, esperado in (('+56 51 220 6518', '+56512206518'),
+                                   ('+56 9 8765 4321', '+56987654321'),
+                                   ('(51) 220-6518', '+56512206518')):
+            with self.subTest(telefono=telefono):
+                form = DelegacionForm(data={**form_data, 'telefono': telefono})
+                self.assertTrue(form.is_valid(), form.errors)
+                self.assertEqual(form.cleaned_data['telefono'], esperado)
+
+        for telefono in ('sjdfasdf', '12345', '+54 11 4000 0000', '000000000'):
+            with self.subTest(telefono=telefono):
+                invalid_form = DelegacionForm(data={**form_data, 'telefono': telefono})
+                self.assertFalse(invalid_form.is_valid())
+                self.assertIn('9 dígitos', invalid_form.errors['telefono'][0])
 
     def assert_crud_flow(
         self,

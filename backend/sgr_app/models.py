@@ -735,6 +735,20 @@ class PasswordResetCode(models.Model):
     verified_at = models.DateTimeField(null=True, blank=True)
     invalidado_en = models.DateTimeField(null=True, blank=True)
     motivo_invalidacion = models.CharField(max_length=20, blank=True, default='')
+    # Un solo código vigente por usuario, garantizado por la base de datos en
+    # cualquier motor. Vale el id del usuario mientras el código está vigente y
+    # NULL al invalidarse; el índice único admite varios NULL (el historial).
+    # Reemplaza a una UniqueConstraint condicional, que MariaDB/MySQL no crean.
+    vigente_de_usuario = models.GeneratedField(
+        expression=models.Case(
+            models.When(invalidado_en__isnull=True, then=models.F('user_id')),
+            default=None,
+            output_field=models.BigIntegerField(),
+        ),
+        output_field=models.BigIntegerField(null=True),
+        db_persist=True,
+        unique=True,
+    )
 
     objects = CodigoRecuperacionVigenteManager()
     todos = models.Manager()
@@ -743,13 +757,6 @@ class PasswordResetCode(models.Model):
         verbose_name = 'Código de recuperación de contraseña'
         verbose_name_plural = 'Códigos de recuperación de contraseña'
         base_manager_name = 'todos'
-        constraints = [
-            models.UniqueConstraint(
-                fields=['user'],
-                condition=models.Q(invalidado_en__isnull=True),
-                name='codigo_recuperacion_vigente_unico',
-            ),
-        ]
 
     def invalidar(self, motivo):
         self.invalidado_en = timezone.now()

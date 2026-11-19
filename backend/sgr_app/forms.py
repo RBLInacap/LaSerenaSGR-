@@ -28,6 +28,7 @@ from sgr_app.models import (
     Usuario,
 )
 from sgr_app.validators import (
+    normalizar_telefono_chileno,
     normalize_chilean_phone,
     normalize_chilean_rut,
     validate_chilean_rut,
@@ -739,10 +740,8 @@ class MantenedorModelForm(forms.ModelForm):
 
 class DelegacionForm(MantenedorModelForm):
     def clean_telefono(self):
-        telefono = self.cleaned_data.get('telefono')
-        if telefono and (not telefono.isascii() or not telefono.isdigit()):
-            raise ValidationError('El teléfono de la delegación debe contener solo números.')
-        return telefono
+        # Fijo o celular, con o sin +56; se guarda como +56XXXXXXXXX.
+        return normalizar_telefono_chileno(self.cleaned_data.get('telefono')) or None
 
     class Meta:
         model = Delegacion

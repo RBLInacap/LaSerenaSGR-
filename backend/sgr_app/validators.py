@@ -70,3 +70,30 @@ def normalize_chilean_phone(value):
 def validate_chilean_phone(value):
     if value:
         normalize_chilean_phone(value)
+
+
+_TELEFONO_GENERAL = re.compile(r'^\+?[0-9\s.()-]+$')
+
+
+def normalizar_telefono_chileno(value):
+    """Teléfono chileno fijo o celular (p. ej., de una delegación).
+
+    Todo número chileno tiene 9 dígitos sin el código de país: celulares
+    (9 XXXX XXXX) y fijos (código de área + número, p. ej. 51 220 6000).
+    Acepta el número con o sin +56 y con espacios, puntos, guiones o
+    paréntesis, y lo guarda como +56XXXXXXXXX.
+    """
+    telefono = (value or '').strip()
+    if not telefono:
+        return ''
+    mensaje = 'Ingresa un teléfono chileno de 9 dígitos, con o sin +56 (p. ej., +56 51 220 6000).'
+    if not _TELEFONO_GENERAL.fullmatch(telefono):
+        raise ValidationError(mensaje)
+    digitos = re.sub(r'\D', '', telefono)
+    if telefono.startswith('+') or (len(digitos) == 11 and digitos.startswith('56')):
+        if not digitos.startswith('56'):
+            raise ValidationError(mensaje)
+        digitos = digitos[2:]
+    if len(digitos) != 9 or digitos.startswith('0') or len(set(digitos)) == 1:
+        raise ValidationError(mensaje)
+    return f'+56{digitos}'

@@ -400,3 +400,34 @@ class CorreccionesSimulacionTests(TestCase):
         })
         self.assertEqual(respuesta.status_code, 302)
         self.assertTrue(PeriodoMedicion.objects.filter(nombre='Trimestre en curso').exists())
+
+
+class CodigoRecuperacionUnicoTests(TestCase):
+    """Un solo código vigente por usuario, garantizado por la base (también en MariaDB)."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.usuario = Usuario.objects.create_user(username='codigo@sim.cl', password='TestPassword123!')
+
+    def _codigo(self):
+        from sgr_app.models import PasswordResetCode
+
+        return PasswordResetCode.objects.create(
+            user=self.usuario, code_hash='x', expires_at=timezone.now() + timedelta(minutes=10),
+        )
+
+    def test_la_base_rechaza_dos_codigos_vigentes_del_mismo_usuario(self):
+        from django.db import IntegrityError, transaction
+
+        self._codigo()
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            self._codigo()
+
+    def test_al_invalidar_se_puede_emitir_otro_y_se_conserva_el_historial(self):
+        from sgr_app.models import PasswordResetCode
+
+        anterior = self._codigo()
+        anterior.invalidar('REEMPLAZADO')
+        self._codigo()
+        self.assertEqual(PasswordResetCode.todos.filter(user=self.usuario).count(), 2)
+        self.assertEqual(PasswordResetCode.objects.filter(user=self.usuario).count(), 1)
