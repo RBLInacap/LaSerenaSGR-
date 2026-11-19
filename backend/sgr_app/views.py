@@ -58,7 +58,6 @@ from sgr_app.services.calculos import (
     calcular_metricas_funcionario,
     calcular_resumen_delegacion,
     calcular_resumen_comunal,
-    recalcular_indicadores_actividad,
 )
 from sgr_app.services.evidencias import metadatos_archivo_evidencia, validar_archivo_evidencia
 
@@ -1046,7 +1045,6 @@ class ActividadViewSet(BajaLogicaMixin, ConcurrenciaAPIMixin, viewsets.ModelView
                 actividad.anular(request.user, motivo)
             except DjangoValidationError as exc:
                 raise DRFValidationError(exc.message_dict) from exc
-            recalcular_indicadores_actividad(actividad)
             RegistroAuditoria.objects.create(
                 usuario=request.user,
                 funcionario=request.user,
@@ -1210,7 +1208,6 @@ class EvidenciaViewSet(SinBorradoFisicoMixin, ConcurrenciaAPIMixin, viewsets.Mod
             evidencia.verificador = request.user
             evidencia.fecha_validacion = timezone.now()
             evidencia.save()
-            recalcular_indicadores_actividad(evidencia.actividad)
 
             RegistroAuditoria.objects.create(
                 usuario=request.user,

@@ -58,7 +58,7 @@ from sgr_app.services.panel_territorial import (
 from sgr_app.models import (
     AjusteIncentivo, ConceptoAjuste, Delegacion, Cargo, Area, Usuario, PeriodoMedicion, ItemMedicion,
     Actividad, ComentarioActividad, Evidencia, CompromisoAgenda, CasoSocial, Solicitante,
-    RegistroAuditoria, MetaModel, ObservacionCompromiso, CatalogoServicio,
+    RegistroAuditoria, ObservacionCompromiso, CatalogoServicio,
     PasswordResetCode, TipoActividad, TipoAtencionSocial, SubatencionSocial,
     AlertaRevisada,
 )
@@ -75,7 +75,6 @@ from sgr_app.services.calculos import (
     calcular_resumen_delegacion,
     calcular_resumen_comunal,
     determinar_color_semaforo,
-    recalcular_indicadores_actividad,
 )
 from sgr_app.services.evidencias import (
     MAX_FOTOS_POR_REGISTRO,
@@ -1686,9 +1685,6 @@ def _guardar_fotos(actividad, fotos, subido_por):
     return evidencias
 
 
-def _recalcular_metas_evidencia(evidencia):
-    return recalcular_indicadores_actividad(evidencia.actividad)
-
 def _funcionarios_disponibles_actividad(user):
     funcionarios = Usuario.objects.filter(
         rol=Usuario.Rol.FUNCIONARIO,
@@ -2120,7 +2116,6 @@ def web_anular_actividad(request, actividad_id):
                 f"{reverse('web_personal')}?id={actividad.funcionario_id}"
                 f"&periodo={request.POST.get('periodo', 'actual')}#historial-actividades"
             )
-        recalcular_indicadores_actividad(actividad)
         RegistroAuditoria.objects.create(
             usuario=request.user,
             funcionario=request.user,
@@ -2395,20 +2390,6 @@ def web_validar_evidencia(request, evidencia_id):
         observacion = form.cleaned_data['observacion'].strip()
         with transaction.atomic():
             estado_anterior = evidencia.estado
-            meta_avances_anteriores = []
-            if evidencia.actividad.item_medicion_id:
-                metas = MetaModel.objects.filter(
-                    item_id=evidencia.actividad.item_medicion_id,
-                    periodo_id=evidencia.actividad.item_medicion.periodo_id,
-                    vigencia=True,
-                ).prefetch_related('indicadores')
-                meta_avances_anteriores = [
-                    {
-                        'meta_id': meta.pk,
-                        'avance': meta.calcular_meta(),
-                    }
-                    for meta in metas
-                ]
 
             evidencia.estado = decision
             evidencia.observacion = observacion
@@ -2424,7 +2405,6 @@ def web_validar_evidencia(request, evidencia_id):
             evidencia.fecha_validacion = timezone.now()
             evidencia.save()
 
-            meta_avances_nuevos = _recalcular_metas_evidencia(evidencia)
             metrics_snapshot = None
             item = evidencia.actividad.item_medicion
             if item:
@@ -2458,13 +2438,11 @@ def web_validar_evidencia(request, evidencia_id):
                 identificador_registro=str(evidencia.pk),
                 valor_anterior={
                     'estado': estado_anterior,
-                    'metas': meta_avances_anteriores,
                 },
                 valor_nuevo={
                     'estado': decision,
                     'observacion': observacion,
                     'codigo': evidencia.codigo_verificador,
-                    'metas': meta_avances_nuevos,
                     'metricas_item': metrics_snapshot,
                 },
                 ip_origen=obtener_ip_cliente(request) or None,

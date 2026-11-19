@@ -208,6 +208,66 @@ class UnificarColumnasDuplicadasTests(TestCase):
         )
 
 
+class MetasSegunEspecificacionTests(TestCase):
+    """CU-10/CU-11 (metas y funciones por cargo), CU-12 (períodos) y CU-08 (reabrir)."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.delegacion = Delegacion.objects.create(nombre='Delegación Metas', codigo='DMET')
+        crear = Usuario.objects.create_user
+        cls.admin = crear(username='admin.metas', password='TestPassword123!',
+                          rol=Usuario.Rol.ADMINISTRADOR)
+        cls.coordinador = crear(username='coordinador.metas', password='TestPassword123!',
+                                rol=Usuario.Rol.COORDINADOR)
+        cls.delegado = crear(username='delegado.metas', password='TestPassword123!',
+                             rol=Usuario.Rol.DELEGADO, delegacion=cls.delegacion)
+        cls.funcionario = crear(username='funcionario.metas', password='TestPassword123!',
+                                rol=Usuario.Rol.FUNCIONARIO, delegacion=cls.delegacion)
+
+    def _estado_http(self, usuario, url):
+        self.client.force_login(usuario)
+        return self.client.get(url).status_code
+
+    def test_coordinador_y_administrador_configuran_metas_y_periodos(self):
+        from django.urls import reverse
+
+        for nombre_url in ('mantenedor_ponderaciones_config', 'mantenedor_periodos_create'):
+            url = reverse(nombre_url)
+            with self.subTest(url=nombre_url):
+                self.assertEqual(self._estado_http(self.admin, url), 200)
+                self.assertEqual(self._estado_http(self.coordinador, url), 200)
+                self.assertEqual(self._estado_http(self.delegado, url), 403)
+                self.assertEqual(self._estado_http(self.funcionario, url), 403)
+
+    def test_solo_el_administrador_reabre_un_periodo_cerrado(self):
+        from django.forms.models import model_to_dict
+
+        from sgr_app.forms import MantenedorPeriodoForm
+
+        hoy = timezone.localdate()
+        periodo = PeriodoMedicion.objects.create(
+            nombre='Período a reabrir',
+            fecha_inicio=hoy - timedelta(days=5),
+            fecha_termino=hoy + timedelta(days=5),
+        )
+        periodo.cerrar_periodo()
+        datos = {
+            campo: valor
+            for campo, valor in model_to_dict(periodo, fields=MantenedorPeriodoForm.Meta.fields).items()
+            if valor is not None
+        }
+        datos.update(cerrado=False, motivo_reapertura='Corrección de datos autorizada')
+
+        formulario_coordinador = MantenedorPeriodoForm(
+            data=datos, instance=periodo, user=self.coordinador,
+        )
+        self.assertFalse(formulario_coordinador.is_valid())
+        self.assertIn('cerrado', formulario_coordinador.errors)
+
+        formulario_admin = MantenedorPeriodoForm(data=datos, instance=periodo, user=self.admin)
+        self.assertTrue(formulario_admin.is_valid(), formulario_admin.errors)
+
+
 class RelacionesSinBorradoEnCascadaTests(TestCase):
     """Normativa: ninguna relación del SGR puede borrar registros en cadena."""
 

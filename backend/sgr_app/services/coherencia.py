@@ -261,7 +261,7 @@ def _chequeos_negocio():
         ('operacion.indisponibilidad_invertida', ADVERTENCIA, 'Indisponibilidades cuyo fin es anterior o igual al inicio',
          Indisponibilidad.objects.filter(fin__lte=F('inicio')), 'Corregir el registro (afecta el informe de disponibilidad).'),
         ('legado.metas_e_indicadores', INFO, 'Registros en el sistema de metas heredado (MetaModel/Indicador)',
-         MetaModel.objects.all(), 'Evaluar retirar el modelo heredado (fase 4).'),
+         MetaModel.objects.all(), 'Congelado: se conserva como histórico y la aplicación ya no lo recalcula (CU-10).'),
         ('legado.indicadores', INFO, 'Registros en Indicador (sistema heredado)', Indicador.objects.all(), ''),
     ]
 

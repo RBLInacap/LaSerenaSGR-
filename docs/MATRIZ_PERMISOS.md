@@ -49,7 +49,10 @@ Leyenda: ✅ permitido · 🔸 solo dentro de su ámbito · ❌ denegado (403) �
 
 | Recurso / operación | Administrador | Coordinador | Delegado | Funcionario |
 |---|---|---|---|---|
-| Delegaciones, cargos, roles, áreas, ítems, períodos, funcionarios (web) | ✅ | ❌ ³ | ❌ | ❌ |
+| Delegaciones, cargos, roles, áreas, funcionarios (web) | ✅ | ❌ ³ | ❌ | ❌ |
+| Ítems, metas y ponderaciones por cargo y período (web, CU-10 / CU-11) | ✅ | ✅ | ❌ | ❌ |
+| Períodos: crear, modificar, cerrar, desactivar (web, CU-12) | ✅ | ✅ | ❌ | ❌ |
+| Períodos: reabrir uno cerrado, con motivo (web, CU-08) | ✅ | ❌ | ❌ | ❌ |
 | Solicitantes (web) | ✅ | ✅ | ❌ | ❌ |
 | Mantenedores por API: leer | ✅ | ✅ | ✅ ⁴ | ✅ ⁴ |
 | Funcionarios y delegaciones por API: crear / modificar / dar de baja ⁷ | ✅ | ❌ | ❌ | ❌ |

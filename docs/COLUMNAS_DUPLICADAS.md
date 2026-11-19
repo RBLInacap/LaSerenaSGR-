@@ -19,7 +19,9 @@ Por normativa ningún dato se elimina. Por eso ninguna columna se borra sin una 
 | `sgr_app_evidencia` | `fecha_subida` | `fecha_evidencia` | Ambas se fijan al crear la evidencia |
 | `sgr_app_registroauditoria` | `funcionario`, `identificador_registro`, `fecha_auditoria` | `usuario`, `identificador`, `fecha` | `RegistroAuditoria.save()`; registros inmutables |
 
-También hay un sistema de metas paralelo y heredado (`MetaModel` / `Indicador`, tablas `Metas` e `Indicadores`). Se sigue actualizando, pero los tableros calculan con `ItemMedicion` y `services/calculos.py`.
+El sistema de metas heredado (`MetaModel` / `Indicador`, tablas `sgr_app_metamodel` y `sgr_app_indicador`) está **congelado**: según la especificación (CU-10) las metas viven en `ItemMedicion`. Sus registros se conservan como histórico y la aplicación ya no los recalcula.
+
+Desde la migración `0046` todas las tablas usan la convención de Django (`sgr_app_<modelo>`, en minúsculas). Desde la `0047` cada evidencia tiene una sola fotografía: las columnas `archivo_foto_2/_3` y `url_foto_simulada_2/_3` se separaron en evidencias propias.
 
 **No son duplicados**, aunque lo parezcan:
 - **Fotografías históricas del nombre:** `tipo_actividad_nombre`, `catalogo_servicio_nombre`, el texto de `AtencionSocial.tipo_atencion` y los campos `AlertaGenerada.regla_*` guardan el valor que tenía el catálogo en ese momento, para que el historial no cambie.

@@ -2311,6 +2311,12 @@ class Evidencia(models.Model):
 class MetaModel(models.Model):
     """
     Entidad de Meta en el modelo de dominio UML (Clase Meta).
+
+    CONGELADA (histórico): según la especificación (CU-10), "la meta se guarda
+    por ítem, cargo y período (campo meta_cuantitativa del ítem)". La aplicación
+    ya no crea ni recalcula metas ni indicadores; la tabla y sus registros se
+    conservan (normativa: nada se elimina) y los métodos del diagrama de clases
+    siguen disponibles para consulta.
     """
     TIPO_CHOICES = [
         ('CUANTITATIVO', 'Cuantitativo'),

@@ -2459,7 +2459,8 @@ class ActivityWorkflowTests(TestCase):
         self.assertEqual(audit.valor_anterior['estado'], Evidencia.Estado.PENDIENTE)
         self.assertEqual(audit.valor_nuevo['estado'], Evidencia.Estado.APROBADA)
 
-    def test_evidence_validation_recalculates_related_meta_indicator(self):
+    def test_evidence_validation_no_altera_metas_heredadas_congeladas(self):
+        """CU-10: las metas viven en el ítem; Meta/Indicador quedan como histórico."""
         meta = MetaModel.objects.create(
             nombre='Meta de evidencia aprobada',
             valor_meta=10,
@@ -2497,16 +2498,21 @@ class ActivityWorkflowTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 302)
+        evidencia.refresh_from_db()
+        self.assertEqual(evidencia.estado, Evidencia.Estado.APROBADA)
+        # El indicador heredado se conserva tal cual: ya no se recalcula.
         indicador.refresh_from_db()
-        self.assertEqual(indicador.avance, 1)
-        self.assertEqual(indicador.cumplimiento, 10)
-        self.assertEqual(meta.calcular_meta(), 10)
+        self.assertEqual(indicador.avance, 0)
+        self.assertEqual(indicador.cumplimiento, 0)
+        # El método del diagrama de clases sigue calculando a demanda.
+        self.assertEqual(meta.calcular_meta(), 0.0)
         audit = RegistroAuditoria.objects.get(
             entidad='Evidencia',
             identificador_registro=str(evidencia.pk),
             accion='VALIDAR_EVIDENCIA',
         )
-        self.assertEqual(audit.valor_nuevo['metas'][0]['avance_aprobado'], 1)
+        self.assertNotIn('metas', audit.valor_nuevo)
+        self.assertEqual(audit.valor_nuevo['metricas_item']['avance_aprobado'], 1)
 
     def test_administrative_user_cannot_validate_evidence(self):
         actividad = Actividad.objects.create(

@@ -7,7 +7,6 @@ from sgr_app.models import (
     CompromisoAgenda,
     Delegacion,
     Evidencia,
-    MetaModel,
     PeriodoMedicion,
     Usuario,
 )
@@ -78,75 +77,6 @@ def determinar_color_semaforo(
         return 'AMBAR'
     else:
         return 'ROJO'
-
-
-def recalcular_indicadores_actividad(actividad: Actividad):
-    """Recalcula indicadores de las metas asociadas al ítem de una actividad."""
-    item = actividad.item_medicion
-    if not item:
-        return []
-
-    metas = MetaModel.objects.filter(
-        item=item,
-        periodo=item.periodo,
-        vigencia=True,
-    ).prefetch_related('indicadores')
-    resultados = []
-
-    for meta in metas:
-        actividades = Actividad.objects.filter(
-            item_medicion=item,
-            anulada=False,
-            fecha_actividad__gte=item.periodo.fecha_inicio,
-            fecha_actividad__lte=item.periodo.fecha_termino,
-        )
-        if meta.funcionario_id:
-            actividades = actividades.filter(funcionario_id=meta.funcionario_id)
-        if meta.delegacion_id:
-            actividades = actividades.filter(delegacion_id=meta.delegacion_id)
-
-        if item.medir_compromisos:
-            compromisos = CompromisoAgenda.objects.filter(
-                actividad__item_medicion=item,
-                actividad__anulada=False,
-                actividad__fecha_actividad__gte=item.periodo.fecha_inicio,
-                actividad__fecha_actividad__lte=item.periodo.fecha_termino,
-                fecha_comprometida__range=(
-                    item.periodo.fecha_inicio,
-                    item.periodo.fecha_termino,
-                ),
-                estado__in=(
-                    CompromisoAgenda.Estado.REALIZADO,
-                ),
-                actividad__evidencias__estado=Evidencia.Estado.APROBADA,
-            ).exclude(
-                actividad__evidencias__estado__in=(
-                    Evidencia.Estado.PENDIENTE,
-                    Evidencia.Estado.RECHAZADA,
-                    Evidencia.Estado.CORRECCION,
-                )
-            )
-            if meta.funcionario_id:
-                compromisos = compromisos.filter(responsable_id=meta.funcionario_id)
-            if meta.delegacion_id:
-                compromisos = compromisos.filter(
-                    delegacion_id=meta.delegacion_id,
-                )
-            avance_aprobado = compromisos.distinct().count()
-        else:
-            avance_aprobado = actividades.filter(
-                evidencias__estado=Evidencia.Estado.APROBADA,
-            ).distinct().count()
-        for indicador in meta.indicadores.all():
-            indicador.actualizarAvance(avance_aprobado)
-
-        resultados.append({
-            'meta_id': meta.pk,
-            'avance_nuevo': meta.calcular_meta(),
-            'avance_aprobado': avance_aprobado,
-        })
-
-    return resultados
 
 
 def _conteos_actividades_por_item_y_estado(actividades_base, items):
