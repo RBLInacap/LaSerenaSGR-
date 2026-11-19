@@ -177,6 +177,14 @@ class Command(BaseCommand):
                     f'Último resultado exitoso: {cuando}.', ahora,
                 )
 
+            # 5. Ciberseguridad (Ley 21.663): protección de la auditoría y plazos
+            #    de reporte de incidentes al CSIRT Nacional.
+            from sgr_app.services.eventos_seguridad import verificar_triggers_auditoria
+            from sgr_app.services.incidentes import revisar_plazos_incidentes
+
+            verificar_triggers_auditoria()
+            revisar_plazos_incidentes(ahora)
+
         estado['ultimo_chequeo'] = _iso(ahora)
         self._guardar_estado(estado)
         self.stdout.write('ok' if ok else f'NO DISPONIBLE: {causa}')

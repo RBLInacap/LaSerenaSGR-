@@ -402,9 +402,10 @@ SECURE_REFERRER_POLICY = 'same-origin'
 X_FRAME_OPTIONS = 'DENY'
 
 # Content-Security-Policy. Las plantillas actuales usan scripts y estilos en
-# línea, por eso se permite 'unsafe-inline'; el resto de orígenes queda acotado.
-# CSP_REPORT_ONLY=True solo informa violaciones en la consola del navegador.
-CSP_REPORT_ONLY = env('CSP_REPORT_ONLY', default=True, cast=bool)
+# línea, por eso se permite 'unsafe-inline'; el resto de orígenes queda acotado
+# y los recursos de CDN llevan integridad (SRI). Se aplica (bloquea) por defecto;
+# CSP_REPORT_ONLY=True solo informa violaciones, para diagnosticar.
+CSP_REPORT_ONLY = env('CSP_REPORT_ONLY', default=False, cast=bool)
 _CSP_MEDIA_ORIGIN = MEDIA_URL.rstrip('/') if MEDIA_URL.startswith('https://') else ''
 CONTENT_SECURITY_POLICY = {
     'default-src': ["'self'"],
@@ -415,7 +416,7 @@ CONTENT_SECURITY_POLICY = {
     ],
     'font-src': ["'self'", 'data:', 'https://cdn.jsdelivr.net', 'https://fonts.gstatic.com'],
     'img-src': [
-        "'self'", 'data:', 'blob:', 'https://unpkg.com',
+        "'self'", 'data:', 'blob:', 'https://unpkg.com', 'https://cdn.jsdelivr.net',
         'https://server.arcgisonline.com',
         *([_CSP_MEDIA_ORIGIN] if _CSP_MEDIA_ORIGIN else []),
     ],
@@ -490,8 +491,8 @@ LOGGING = {
             'archivo': {
                 'class': 'logging.handlers.RotatingFileHandler',
                 'filename': LOG_FILE,
-                'maxBytes': 5 * 1024 * 1024,
-                'backupCount': 10,
+                'maxBytes': env('LOG_FILE_MAX_MB', default=10, cast=int) * 1024 * 1024,
+                'backupCount': env('LOG_FILE_BACKUPS', default=100, cast=int),
                 'encoding': 'utf-8',
                 'formatter': 'detallado',
             },

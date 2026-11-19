@@ -1,0 +1,15 @@
+{% for field in form %}
+  <div class="{% if field.field.widget.input_type == 'checkbox' %}col-12 col-md-4{% elif field.name in 'descripcion sistemas_afectados impacto indicadores_compromiso medidas_contencion causa_raiz eventos' %}col-12{% else %}col-12 col-md-4{% endif %}">
+    {% if field.field.widget.input_type == 'checkbox' %}
+      <div class="form-check mt-md-4">
+        {{ field }}
+        <label class="form-check-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+      </div>
+    {% else %}
+      <label class="form-label fw-semibold" for="{{ field.id_for_label }}">{{ field.label }}</label>
+      {{ field }}
+    {% endif %}
+    {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+    {% for error in field.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
+  </div>
+{% endfor %}

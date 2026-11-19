@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block title %}{{ incidente.codigo }} | Matriz SGR{% endblock %}
+{% block content %}
+<div class="d-flex flex-column gap-4">
+  <div class="card sgr-page-header sgr-image-header p-4 shadow-sm border-0">
+    <div class="d-flex flex-wrap justify-content-between align-items-start gap-2">
+      <div>
+        <span class="badge bg-white text-danger text-uppercase fw-bold mb-1">{{ incidente.codigo }} · {{ incidente.get_estado_display }}</span>
+        <h3 class="fw-black mb-0 text-white">{{ incidente.titulo }}</h3>
+        <small class="text-white-50">Detectado el {{ incidente.detectado_en|date:"d/m/Y H:i" }} · {{ incidente.get_categoria_display }} · Severidad {{ incidente.get_severidad_display|lower }}</small>
+      </div>
+      <div class="d-flex gap-2">
+        <a href="{% url 'web_incidente_reporte' incidente.pk %}" class="btn btn-light fw-semibold"><i class="bi bi-download"></i> Exportar reporte</a>
+        <a href="{% url 'web_incidentes' %}" class="btn btn-outline-light">Volver</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="card border-0 shadow-sm">
+    <div class="card-body">
+      <h5 class="fw-bold">Reporte al CSIRT Nacional</h5>
+      {% if incidente.requiere_reporte %}
+      <ul class="list-group mb-3">
+        {% for hito in hitos %}
+        <li class="list-group-item d-flex justify-content-between align-items-center">
+          <span>{{ hito.nombre }}<small class="d-block text-secondary">Vence {{ hito.vence|date:"d/m/Y H:i" }}{% if hito.enviado_en %} · enviado {{ hito.enviado_en|date:"d/m/Y H:i" }}{% endif %}</small></span>
+          <span class="badge {% if hito.estado == 'ENVIADO' %}bg-success{% elif hito.estado == 'VENCIDO' %}bg-danger{% elif hito.estado == 'POR_VENCER' %}bg-warning text-dark{% else %}bg-secondary{% endif %}">{{ hito.estado|title }}</span>
+        </li>
+        {% endfor %}
+      </ul>
+      <p class="small text-secondary">Reporta en <a href="https://portal.anci.gob.cl" target="_blank" rel="noopener">portal.anci.gob.cl</a> y registra aquí cada envío. Folio actual: {{ incidente.folio_csirt|default:"sin folio" }}.</p>
+      {% if puede_gestionar %}
+      <form method="post" class="row g-2 align-items-end">
+        {% csrf_token %}<input type="hidden" name="operacion" value="hito">
+        <div class="col-12 col-md-5"><label class="form-label" for="{{ form_hito.hito.id_for_label }}">Hito</label>{{ form_hito.hito }}</div>
+        <div class="col-6 col-md-3"><label class="form-label" for="{{ form_hito.enviado_en.id_for_label }}">Enviado el</label>{{ form_hito.enviado_en }}</div>
+        <div class="col-6 col-md-2"><label class="form-label" for="{{ form_hito.folio.id_for_label }}">Folio ANCI</label>{{ form_hito.folio }}</div>
+        <div class="col-12 col-md-2"><button class="btn btn-outline-danger w-100">Registrar envío</button></div>
+        {% for campo in form_hito %}{% for error in campo.errors %}<div class="col-12 invalid-feedback d-block">{{ error }}</div>{% endfor %}{% endfor %}
+      </form>
+      {% endif %}
+      {% else %}
+      <p class="text-secondary mb-0">Sin efecto significativo marcado: no requiere reporte al CSIRT Nacional. Si cambia la evaluación, márcalo abajo.</p>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="card border-0 shadow-sm">
+    <div class="card-body">
+      <h5 class="fw-bold">Datos del incidente</h5>
+      {% if puede_gestionar %}
+      <form method="post" novalidate>
+        {% csrf_token %}<input type="hidden" name="operacion" value="actualizar">
+        <div class="row g-3">{% include "incidentes/_campos.html" %}</div>
+        <button class="btn btn-danger mt-3">Guardar cambios</button>
+      </form>
+      {% else %}
+      <dl class="row mb-0">
+        <dt class="col-md-3">Descripción</dt><dd class="col-md-9">{{ incidente.descripcion|linebreaksbr }}</dd>
+        <dt class="col-md-3">Gravedad e impacto</dt><dd class="col-md-9">{{ incidente.impacto|default:"-"|linebreaksbr }}</dd>
+        <dt class="col-md-3">Indicadores de compromiso</dt><dd class="col-md-9">{{ incidente.indicadores_compromiso|default:"-"|linebreaksbr }}</dd>
+        <dt class="col-md-3">Contención</dt><dd class="col-md-9">{{ incidente.medidas_contencion|default:"-"|linebreaksbr }}</dd>
+        <dt class="col-md-3">Causa raíz</dt><dd class="col-md-9">{{ incidente.causa_raiz|default:"-"|linebreaksbr }}</dd>
+      </dl>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="card border-0 shadow-sm">
+    <div class="card-body">
+      <h5 class="fw-bold">Bitácora de acciones</h5>
+      {% if acciones %}
+      <ul class="list-unstyled">
+        {% for accion in acciones %}
+        <li class="border-start border-3 border-danger ps-3 mb-2"><small class="text-secondary">{{ accion.creado_en|date:"d/m/Y H:i" }} · {{ accion.autor.get_full_name|default:accion.autor.username }}</small><div>{{ accion.texto|linebreaksbr }}</div></li>
+        {% endfor %}
+      </ul>
+      {% else %}<p class="text-secondary">Sin acciones registradas.</p>{% endif %}
+      {% if puede_gestionar %}
+      <form method="post">
+        {% csrf_token %}<input type="hidden" name="operacion" value="accion">
+        {{ form_accion.texto }}
+        {% for error in form_accion.texto.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
+        <button class="btn btn-outline-danger btn-sm mt-2">Agregar a la bitácora</button>
+      </form>
+      {% endif %}
+      {% if eventos_asociados %}
+      <h6 class="fw-bold mt-4">Eventos de seguridad asociados</h6>
+      <ul class="small">{% for evento in eventos_asociados %}<li>{{ evento.creado_en|date:"d/m/Y H:i" }} · {{ evento.get_tipo_display }} · IP {{ evento.ip_origen|default:"-" }}</li>{% endfor %}</ul>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

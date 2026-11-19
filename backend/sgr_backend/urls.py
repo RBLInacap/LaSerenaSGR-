@@ -19,7 +19,7 @@ from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib.auth.decorators import login_not_required, login_required
-from sgr_app import dos_factores, mantenedores, salud_views, web_views
+from sgr_app import dos_factores, incidentes_views, mantenedores, salud_views, web_views
 
 urlpatterns = [
     path('health/', salud_views.health, name='health'),
@@ -145,6 +145,11 @@ urlpatterns = [
     path('terreno/', web_views.web_terreno, name='web_terreno'),
     path('casos-sociales/', web_views.web_casos_sociales, name='web_casos_sociales'),
     path('auditoria/', web_views.web_auditoria, name='web_auditoria'),
+    # Ley 21.663: incidentes de ciberseguridad y su reporte al CSIRT Nacional.
+    path('incidentes/', incidentes_views.incidentes_lista, name='web_incidentes'),
+    path('incidentes/registrar/', incidentes_views.incidente_crear, name='web_incidente_crear'),
+    path('incidentes/<int:pk>/', incidentes_views.incidente_detalle, name='web_incidente_detalle'),
+    path('incidentes/<int:pk>/reporte/', incidentes_views.incidente_reporte, name='web_incidente_reporte'),
     path('api/geocodificar/', web_views.api_geocodificar_direccion, name='api_geocodificar'),
 
     # API REST

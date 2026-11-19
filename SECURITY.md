@@ -24,7 +24,8 @@ Ver `backend/.env.example` y `AWS_PHPMYADMIN_DEPLOYMENT.md`. En el despliegue en
 - `TRUSTED_PROXY_COUNT=1` (o `2` si se agrega un ALB delante): sin esto, el bloqueo por IP vería a todos como `127.0.0.1`.
 - HTTPS con certificado autofirmado en Nginx (no hay dominio); nunca HTTP plano.
 - phpMyAdmin solo en `127.0.0.1:8080`, accesible por túnel SSH; MariaDB, Gunicorn y phpMyAdmin sin puertos públicos.
-- `CSP_REPORT_ONLY=True` al desplegar; revisar la consola del navegador y pasar a `False` cuando no aparezcan violaciones.
+- `CSP_REPORT_ONLY=False` (por defecto): la CSP bloquea recursos no autorizados. Los recursos de CDN llevan integridad (SRI); `True` solo para diagnosticar.
+- `ALERTAS_EMAIL`: obligatorio en producción; recibe las alertas de eventos de seguridad y de plazos de reporte de incidentes.
 
 ## Verificación automática (CI)
 
@@ -42,6 +43,20 @@ coverage run --source=sgr_app manage.py test sgr_app; coverage report
 ## Respaldo y recuperación
 
 Respaldo diario automático (RPO 24 h) con SHA-256, copia local de 7 días y copia cifrada en S3 de 35 días; restauración verificada con `restaurar_base_datos` (ver `AWS_PHPMYADMIN_DEPLOYMENT.md`, sección 10.1).
+
+## Ley N° 21.663 (Ley Marco de Ciberseguridad)
+
+La Municipalidad es prestadora de servicios esenciales: debe prevenir, reportar y resolver incidentes, y reportar al CSIRT Nacional (ANCI) los que tengan efecto significativo, entre ellos afectar sistemas con datos personales. El SGR apoya ese deber así:
+
+| Obligación | Cómo la apoya el SGR | Ubicación |
+|---|---|---|
+| Prevenir | Controles OWASP de esta página, 2FA obligatoria por rol, auditoría inmutable, CSP aplicada y SRI en los recursos de CDN | `settings.py`, `templates/base.html` |
+| Detectar | Eventos de seguridad registrados y alertados por correo: fuerza bruta, 2FA bloqueada, accesos denegados repetidos, intento de alterar la auditoría y triggers ausentes (revisados cada minuto) | `services/eventos_seguridad.py`, monitor |
+| Reportar | Registro de incidentes con criterios de efecto significativo; plazos de alerta temprana (3 h), actualización (72 h) e informe final (15 días) con avisos por correo; reporte exportable con los datos de cada hito | `incidentes_views.py`, `services/incidentes.py` |
+| Resolver y aprender | Bitácora de acciones sin edición ni borrado; cierre con causa raíz | `AccionIncidente` |
+| Evidencia | Retención de registros de 1 año en journald y Nginx; auditoría, eventos e incidentes sin vencimiento en la base y en los respaldos cifrados | Guía de despliegue, sección 10.2 |
+
+Fuera del alcance del software (responsabilidad de la Municipalidad): reportar efectivamente en el portal de la ANCI, la taxonomía oficial de incidentes (la del SGR es referencial) y, si la ANCI la califica como operador de importancia vital, el SGSI, el plan de continuidad, el delegado de ciberseguridad y la capacitación.
 
 ## Pendiente
 

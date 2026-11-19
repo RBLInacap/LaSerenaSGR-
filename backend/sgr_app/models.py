@@ -15,7 +15,7 @@ import logging
 import secrets
 import string
 import time
-from datetime import date
+from datetime import date, timedelta
 from django.db import IntegrityError, connections, models, router, transaction
 from django.db.utils import OperationalError
 from django.contrib.auth.models import AbstractUser, UserManager
@@ -2984,6 +2984,14 @@ def _registrar_intento_alteracion_auditoria(operacion, identificadores):
         ).save()
     except Exception:
         logging.getLogger('sgr.security').exception('No se pudo registrar el intento de alteración.')
+    from sgr_app.services.eventos_seguridad import registrar_evento
+
+    registrar_evento(
+        'INTENTO_ALTERAR_AUDITORIA',
+        f'Intento de {operacion} sobre {len(identificadores)} registro(s) de auditoría '
+        f'(ids {", ".join(identificadores[:5])}) por {getattr(usuario, "username", None) or "un proceso sin usuario"}.',
+        usuario=usuario, agrupar_por=operacion,
+    )
 
 
 class RegistroAuditoriaQuerySet(models.QuerySet):
@@ -3296,3 +3304,193 @@ class CartaSeguimiento(models.Model):
 
     def __str__(self):
         return f"Carta {self.numero or self.fila_origen} - {self.remite}"
+
+
+# =============================================================================
+# CIBERSEGURIDAD: EVENTOS E INCIDENTES (Ley N° 21.663, Ley Marco de Ciberseguridad)
+# =============================================================================
+# Las municipalidades son prestadoras de servicios esenciales: deben prevenir,
+# reportar y resolver incidentes, y reportar al CSIRT Nacional (ANCI) los que
+# tengan efectos significativos (alerta temprana en 3 horas, actualización en
+# 72 horas e informe final en 15 días corridos). Nada de esto se borra.
+
+class EventoSeguridad(models.Model):
+    """Evento de seguridad detectado automáticamente (evidencia para incidentes)."""
+
+    class Tipo(models.TextChoices):
+        BLOQUEO_INICIO_SESION = 'BLOQUEO_INICIO_SESION', 'Bloqueo por intentos fallidos de inicio de sesión'
+        BLOQUEO_2FA = 'BLOQUEO_2FA', 'Bloqueo por códigos 2FA incorrectos'
+        ACCESOS_DENEGADOS_REPETIDOS = 'ACCESOS_DENEGADOS_REPETIDOS', 'Accesos denegados repetidos'
+        INTENTO_ALTERAR_AUDITORIA = 'INTENTO_ALTERAR_AUDITORIA', 'Intento de alterar la auditoría'
+        TRIGGERS_AUDITORIA_AUSENTES = 'TRIGGERS_AUDITORIA_AUSENTES', 'Protección de la auditoría desactivada'
+
+    tipo = models.CharField(max_length=40, choices=Tipo.choices, db_index=True)
+    detalle = models.TextField()
+    usuario = models.ForeignKey(
+        Usuario, on_delete=models.PROTECT, null=True, blank=True, related_name='eventos_seguridad',
+    )
+    ip_origen = models.GenericIPAddressField(null=True, blank=True)
+    clave_agrupacion = models.CharField(max_length=200, blank=True, default='', db_index=True)
+    alertado = models.BooleanField(default=False, help_text='Se envió correo a ALERTAS_EMAIL.')
+    creado_en = models.DateTimeField(default=timezone.now, db_index=True)
+
+    class Meta:
+        ordering = ['-creado_en', '-pk']
+        verbose_name = 'Evento de seguridad'
+        verbose_name_plural = 'Eventos de seguridad'
+
+    def __str__(self):
+        return f'{self.get_tipo_display()} ({self.creado_en:%d/%m/%Y %H:%M})'
+
+
+class IncidenteSeguridad(models.Model):
+    """Incidente de ciberseguridad y su ciclo de reporte al CSIRT Nacional."""
+
+    PLAZOS = {
+        'alerta_temprana': timedelta(hours=3),
+        'actualizacion': timedelta(hours=72),
+        'informe_final': timedelta(days=15),
+    }
+    NOMBRES_HITO = {
+        'alerta_temprana': 'Alerta temprana (3 horas)',
+        'actualizacion': 'Actualización: evaluación, gravedad, impacto e IoC (72 horas)',
+        'informe_final': 'Informe final (15 días corridos)',
+    }
+    CAMPO_ENVIO = {
+        'alerta_temprana': 'alerta_temprana_enviada_en',
+        'actualizacion': 'actualizacion_enviada_en',
+        'informe_final': 'informe_final_enviado_en',
+    }
+
+    class Categoria(models.TextChoices):
+        # Referencial: ajustar a la taxonomía oficial de incidentes de la ANCI.
+        ACCESO_NO_AUTORIZADO = 'ACCESO_NO_AUTORIZADO', 'Acceso no autorizado o intrusión'
+        CODIGO_MALICIOSO = 'CODIGO_MALICIOSO', 'Código malicioso (malware, ransomware)'
+        DISPONIBILIDAD = 'DISPONIBILIDAD', 'Afectación de disponibilidad (DoS, caída)'
+        FUGA_INFORMACION = 'FUGA_INFORMACION', 'Fuga o exposición de información'
+        FRAUDE = 'FRAUDE', 'Fraude o suplantación (phishing)'
+        VULNERABILIDAD = 'VULNERABILIDAD', 'Explotación de una vulnerabilidad'
+        OTRO = 'OTRO', 'Otro'
+
+    class Severidad(models.TextChoices):
+        BAJA = 'BAJA', 'Baja'
+        MEDIA = 'MEDIA', 'Media'
+        ALTA = 'ALTA', 'Alta'
+        CRITICA = 'CRITICA', 'Crítica'
+
+    class Estado(models.TextChoices):
+        ABIERTO = 'ABIERTO', 'Abierto'
+        CONTENIDO = 'CONTENIDO', 'Contenido'
+        CERRADO = 'CERRADO', 'Cerrado'
+
+    codigo = models.CharField(max_length=20, unique=True, editable=False)
+    titulo = models.CharField(max_length=200, verbose_name='Título')
+    descripcion = models.TextField(verbose_name='Descripción de lo ocurrido')
+    categoria = models.CharField(max_length=30, choices=Categoria.choices, verbose_name='Categoría')
+    severidad = models.CharField(max_length=10, choices=Severidad.choices, default=Severidad.MEDIA)
+    estado = models.CharField(max_length=10, choices=Estado.choices, default=Estado.ABIERTO)
+    detectado_en = models.DateTimeField(
+        default=timezone.now, verbose_name='Detectado el',
+        help_text='Los plazos de reporte corren desde que se tiene conocimiento del incidente.',
+    )
+    ocurrido_en = models.DateTimeField(null=True, blank=True, verbose_name='Ocurrido el (estimado)')
+    # Criterios de efecto significativo (Ley 21.663): si alguno se cumple, se reporta.
+    afecta_continuidad = models.BooleanField(default=False, verbose_name='Interrumpe la continuidad del servicio')
+    afecta_personas = models.BooleanField(
+        default=False, verbose_name='Afecta la integridad física o la salud de las personas',
+    )
+    afecta_datos_personales = models.BooleanField(default=False, verbose_name='Afecta sistemas con datos personales')
+    sistemas_afectados = models.TextField(blank=True, default='', verbose_name='Sistemas afectados')
+    impacto = models.TextField(blank=True, default='', verbose_name='Evaluación de gravedad e impacto')
+    indicadores_compromiso = models.TextField(blank=True, default='', verbose_name='Indicadores de compromiso (IoC)')
+    medidas_contencion = models.TextField(blank=True, default='', verbose_name='Medidas de contención y mitigación')
+    causa_raiz = models.TextField(blank=True, default='', verbose_name='Causa raíz y lecciones aprendidas')
+    folio_csirt = models.CharField(max_length=60, blank=True, default='', verbose_name='Folio del reporte en la ANCI')
+    alerta_temprana_enviada_en = models.DateTimeField(null=True, blank=True)
+    actualizacion_enviada_en = models.DateTimeField(null=True, blank=True)
+    informe_final_enviado_en = models.DateTimeField(null=True, blank=True)
+    eventos = models.ManyToManyField(EventoSeguridad, blank=True, related_name='incidentes')
+    alertas_enviadas = models.JSONField(default=list, blank=True, editable=False)
+    registrado_por = models.ForeignKey(Usuario, on_delete=models.PROTECT, related_name='incidentes_registrados')
+    creado_en = models.DateTimeField(auto_now_add=True)
+    actualizado_en = models.DateTimeField(auto_now=True)
+    cerrado_en = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-detectado_en', '-pk']
+        verbose_name = 'Incidente de seguridad'
+        verbose_name_plural = 'Incidentes de seguridad'
+
+    def __str__(self):
+        return f'{self.codigo} - {self.titulo}'
+
+    @property
+    def requiere_reporte(self):
+        """Efecto significativo: debe reportarse al CSIRT Nacional."""
+        return self.afecta_continuidad or self.afecta_personas or self.afecta_datos_personales
+
+    def vence(self, hito):
+        return self.detectado_en + self.PLAZOS[hito]
+
+    def enviado_en(self, hito):
+        return getattr(self, self.CAMPO_ENVIO[hito])
+
+    def estado_hito(self, hito, ahora=None):
+        """ENVIADO, VENCIDO, POR_VENCER (último cuarto del plazo), PENDIENTE o NO_APLICA."""
+        if not self.requiere_reporte:
+            return 'NO_APLICA'
+        if self.enviado_en(hito):
+            return 'ENVIADO'
+        ahora = ahora or timezone.now()
+        vence = self.vence(hito)
+        if ahora > vence:
+            return 'VENCIDO'
+        if vence - ahora <= self.PLAZOS[hito] / 4:
+            return 'POR_VENCER'
+        return 'PENDIENTE'
+
+    def hitos(self, ahora=None):
+        return [
+            {
+                'clave': hito, 'nombre': self.NOMBRES_HITO[hito], 'vence': self.vence(hito),
+                'enviado_en': self.enviado_en(hito), 'estado': self.estado_hito(hito, ahora),
+            }
+            for hito in self.PLAZOS
+        ]
+
+    def save(self, *args, **kwargs):
+        if not self.codigo:
+            anio = timezone.localdate().year
+            ultimo = (
+                type(self).objects.filter(codigo__startswith=f'INC-{anio}-')
+                .order_by('-codigo').values_list('codigo', flat=True).first()
+            )
+            numero = int(ultimo.rsplit('-', 1)[1]) + 1 if ultimo else 1
+            self.codigo = f'INC-{anio}-{numero:04d}'
+        if self.estado == self.Estado.CERRADO and not self.cerrado_en:
+            self.cerrado_en = timezone.now()
+        elif self.estado != self.Estado.CERRADO:
+            self.cerrado_en = None
+        super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise ValidationError('Por normativa los incidentes no se eliminan; ciérralos.')
+
+
+class AccionIncidente(models.Model):
+    """Bitácora de acciones de un incidente (registro del SGSI). No se edita ni se borra."""
+
+    incidente = models.ForeignKey(IncidenteSeguridad, on_delete=models.PROTECT, related_name='acciones')
+    autor = models.ForeignKey(Usuario, on_delete=models.PROTECT, related_name='acciones_incidentes')
+    texto = models.TextField()
+    creado_en = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['creado_en', 'pk']
+        verbose_name = 'Acción sobre un incidente'
+        verbose_name_plural = 'Acciones sobre incidentes'
+
+    def save(self, *args, **kwargs):
+        if self.pk and not self._state.adding:
+            raise ValidationError('La bitácora del incidente no se modifica: registra una nueva acción.')
+        super().save(*args, **kwargs)

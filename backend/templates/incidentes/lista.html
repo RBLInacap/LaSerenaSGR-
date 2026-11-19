@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}Incidentes de seguridad | Matriz SGR{% endblock %}
+{% block content %}
+<div class="d-flex flex-column gap-4">
+  <div class="card sgr-page-header sgr-image-header p-4 shadow-sm border-0">
+    <div class="d-flex flex-wrap justify-content-between align-items-start gap-2">
+      <div>
+        <span class="badge bg-white text-danger text-uppercase fw-bold mb-1">Ley 21.663 · Ciberseguridad</span>
+        <h3 class="fw-black mb-0 text-white">Incidentes de seguridad</h3>
+        <small class="text-white-50">Registro, seguimiento y plazos de reporte al CSIRT Nacional (alerta temprana 3 h · actualización 72 h · informe final 15 días).</small>
+      </div>
+      {% if puede_gestionar %}<a href="{% url 'web_incidente_crear' %}" class="btn btn-light fw-semibold"><i class="bi bi-plus-lg"></i> Registrar incidente</a>{% endif %}
+    </div>
+  </div>
+
+  {% if pendientes %}
+  <div class="alert alert-danger mb-0"><i class="bi bi-alarm"></i> Hay {{ pendientes }} plazo{{ pendientes|pluralize }} de reporte vencido{{ pendientes|pluralize }} o por vencer.</div>
+  {% endif %}
+
+  <div class="card border-0 shadow-sm">
+    <div class="card-body">
+      <h5 class="fw-bold">Incidentes</h5>
+      {% if incidentes %}
+      <div class="table-responsive">
+        <table class="table table-sm align-middle">
+          <thead><tr><th>Código</th><th>Incidente</th><th>Severidad</th><th>Estado</th><th>Detectado</th><th>Plazos de reporte</th><th></th></tr></thead>
+          <tbody>
+          {% for incidente in incidentes %}
+            <tr>
+              <td class="font-monospace">{{ incidente.codigo }}</td>
+              <td>{{ incidente.titulo }}<small class="d-block text-secondary">{{ incidente.get_categoria_display }}</small></td>
+              <td>{{ incidente.get_severidad_display }}</td>
+              <td>{{ incidente.get_estado_display }}</td>
+              <td>{{ incidente.detectado_en|date:"d/m/Y H:i" }}</td>
+              <td>
+                {% if incidente.requiere_reporte %}
+                  {% for hito in incidente.hitos_actuales %}
+                    <span class="badge {% if hito.estado == 'ENVIADO' %}bg-success{% elif hito.estado == 'VENCIDO' %}bg-danger{% elif hito.estado == 'POR_VENCER' %}bg-warning text-dark{% else %}bg-secondary{% endif %}" title="{{ hito.nombre }}: vence {{ hito.vence|date:'d/m/Y H:i' }}">{{ forloop.counter }}. {{ hito.estado|title }}</span>
+                  {% endfor %}
+                {% else %}<span class="text-secondary small">No requiere reporte</span>{% endif %}
+              </td>
+              <td><a href="{% url 'web_incidente_detalle' incidente.pk %}" class="btn btn-outline-danger btn-sm">Ver</a></td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}<p class="text-secondary mb-0">No hay incidentes registrados.</p>{% endif %}
+    </div>
+  </div>
+
+  <div class="card border-0 shadow-sm">
+    <div class="card-body">
+      <h5 class="fw-bold">Eventos de seguridad detectados</h5>
+      <p class="small text-secondary">Bloqueos por fuerza bruta, accesos denegados repetidos e intentos de alterar la auditoría. Cada uno se alertó por correo; si alguno es un incidente, regístralo.</p>
+      {% if eventos %}
+      <div class="table-responsive">
+        <table class="table table-sm align-middle">
+          <thead><tr><th>Fecha</th><th>Tipo</th><th>Detalle</th><th>IP</th><th></th></tr></thead>
+          <tbody>
+          {% for evento in eventos %}
+            <tr>
+              <td class="text-nowrap">{{ evento.creado_en|date:"d/m/Y H:i" }}</td>
+              <td>{{ evento.get_tipo_display }}</td>
+              <td class="small">{{ evento.detalle }}</td>
+              <td class="font-monospace small">{{ evento.ip_origen|default:"-" }}</td>
+              <td>{% if puede_gestionar %}<a href="{% url 'web_incidente_crear' %}?evento={{ evento.pk }}" class="btn btn-outline-secondary btn-sm text-nowrap">Crear incidente</a>{% endif %}</td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}<p class="text-secondary mb-0">No se han detectado eventos de seguridad.</p>{% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

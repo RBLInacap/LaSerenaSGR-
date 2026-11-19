@@ -1,3 +1,4 @@
+from datetime import timedelta
 from decimal import Decimal
 
 from django import forms
@@ -26,6 +27,8 @@ from sgr_app.models import (
     TipoActividad,
     TipoAtencionSocial,
     Usuario,
+    EventoSeguridad,
+    IncidenteSeguridad,
 )
 from sgr_app.validators import (
     normalizar_telefono_chileno,
@@ -1721,3 +1724,91 @@ class ValidarEvidenciaForm(forms.Form):
         elif 'observacion' in cleaned_data:
             cleaned_data['observacion'] = cleaned_data['observacion'].strip()
         return cleaned_data
+
+
+# =============================================================================
+# INCIDENTES DE CIBERSEGURIDAD (Ley 21.663)
+# =============================================================================
+class FechaHoraInput(forms.DateTimeInput):
+    """Selector HTML5 de fecha y hora (formato ISO que exige el navegador)."""
+
+    input_type = 'datetime-local'
+
+    def __init__(self, attrs=None):
+        super().__init__(attrs=attrs, format='%Y-%m-%dT%H:%M')
+
+
+class IncidenteSeguridadForm(forms.ModelForm):
+    CAMPOS_FECHA = ('detectado_en', 'ocurrido_en')
+
+    class Meta:
+        model = IncidenteSeguridad
+        fields = (
+            'titulo', 'categoria', 'severidad', 'estado', 'detectado_en', 'ocurrido_en',
+            'afecta_continuidad', 'afecta_personas', 'afecta_datos_personales',
+            'descripcion', 'sistemas_afectados', 'impacto', 'indicadores_compromiso',
+            'medidas_contencion', 'causa_raiz', 'folio_csirt', 'eventos',
+        )
+        widgets = {
+            'detectado_en': FechaHoraInput(),
+            'ocurrido_en': FechaHoraInput(),
+            'descripcion': forms.Textarea(attrs={'rows': 3}),
+            'sistemas_afectados': forms.Textarea(attrs={'rows': 2}),
+            'impacto': forms.Textarea(attrs={'rows': 2}),
+            'indicadores_compromiso': forms.Textarea(attrs={'rows': 2}),
+            'medidas_contencion': forms.Textarea(attrs={'rows': 2}),
+            'causa_raiz': forms.Textarea(attrs={'rows': 2}),
+            'eventos': forms.SelectMultiple(attrs={'size': 6}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for nombre in self.CAMPOS_FECHA:
+            self.fields[nombre].input_formats = ['%Y-%m-%dT%H:%M', '%Y-%m-%d %H:%M']
+        recientes = EventoSeguridad.objects.order_by('-creado_en')[:100].values_list('pk', flat=True)
+        actuales = self.instance.eventos.values_list('pk', flat=True) if self.instance.pk else []
+        self.fields['eventos'].queryset = EventoSeguridad.objects.filter(
+            Q(pk__in=list(recientes)) | Q(pk__in=list(actuales))
+        ).order_by('-creado_en')
+        self.fields['eventos'].required = False
+        for nombre, campo in self.fields.items():
+            if isinstance(campo.widget, forms.CheckboxInput):
+                campo.widget.attrs.setdefault('class', 'form-check-input')
+            elif isinstance(campo.widget, forms.Select):
+                campo.widget.attrs.setdefault('class', 'form-select')
+            else:
+                campo.widget.attrs.setdefault('class', 'form-control')
+
+    def clean(self):
+        datos = super().clean()
+        ahora = timezone.now()
+        detectado, ocurrido = datos.get('detectado_en'), datos.get('ocurrido_en')
+        if detectado and detectado > ahora + timedelta(minutes=5):
+            self.add_error('detectado_en', 'La fecha de detección no puede ser futura.')
+        if detectado and ocurrido and ocurrido > detectado:
+            self.add_error('ocurrido_en', 'El incidente no puede ocurrir después de su detección.')
+        if datos.get('estado') == IncidenteSeguridad.Estado.CERRADO and not (datos.get('causa_raiz') or '').strip():
+            self.add_error('causa_raiz', 'Para cerrar el incidente registra la causa raíz y las lecciones aprendidas.')
+        return datos
+
+
+class HitoReporteForm(forms.Form):
+    hito = forms.ChoiceField(choices=[(k, v) for k, v in IncidenteSeguridad.NOMBRES_HITO.items()])
+    enviado_en = forms.DateTimeField(
+        label='Enviado al CSIRT Nacional el', widget=FechaHoraInput(),
+        input_formats=['%Y-%m-%dT%H:%M', '%Y-%m-%d %H:%M'],
+    )
+    folio = forms.CharField(max_length=60, required=False, label='Folio de la ANCI')
+
+    def clean_enviado_en(self):
+        valor = self.cleaned_data['enviado_en']
+        if valor > timezone.now() + timedelta(minutes=5):
+            raise ValidationError('La fecha de envío no puede ser futura.')
+        return valor
+
+
+class AccionIncidenteForm(forms.Form):
+    texto = forms.CharField(
+        max_length=4000, label='Acción realizada',
+        widget=forms.Textarea(attrs={'rows': 2, 'class': 'form-control'}),
+    )

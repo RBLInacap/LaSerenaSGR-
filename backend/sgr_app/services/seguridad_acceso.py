@@ -130,6 +130,17 @@ def registrar_login_fallido(request, username):
             'Bloqueo temporal de inicio de sesión: usuario=%r ip=%s',
             (username or '')[:150], ip,
         )
+        from sgr_app.models import EventoSeguridad, Usuario
+        from sgr_app.services.eventos_seguridad import registrar_evento
+
+        nombre = (username or '')[:150]
+        registrar_evento(
+            EventoSeguridad.Tipo.BLOQUEO_INICIO_SESION,
+            f'Se bloqueó temporalmente el inicio de sesión por intentos fallidos repetidos '
+            f'(usuario ingresado: {nombre!r}). Posible ataque de fuerza bruta.',
+            usuario=Usuario.objects.filter(username__iexact=nombre).first() if nombre else None,
+            ip=ip, agrupar_por=ip or nombre,
+        )
 
 
 def registrar_login_exitoso(request, username):
@@ -151,6 +162,15 @@ def registrar_2fa_fallido(request, user):
     if _registrar_fallo(_ambitos_2fa(user.pk)):
         security_logger.warning(
             'Bloqueo temporal de 2FA: usuario=%s ip=%s', user.pk, obtener_ip_cliente(request),
+        )
+        from sgr_app.models import EventoSeguridad
+        from sgr_app.services.eventos_seguridad import registrar_evento
+
+        registrar_evento(
+            EventoSeguridad.Tipo.BLOQUEO_2FA,
+            f'Se bloqueó la verificación en dos pasos de {user.get_username()} por códigos incorrectos '
+            'repetidos: alguien podría conocer su contraseña.',
+            usuario=user, ip=obtener_ip_cliente(request), agrupar_por=str(user.pk),
         )
 
 

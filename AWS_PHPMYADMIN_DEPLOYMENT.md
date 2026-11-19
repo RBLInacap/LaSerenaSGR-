@@ -210,8 +210,8 @@ TWO_FACTOR_MAX_FAILED_ATTEMPTS=5
 LOGIN_LOCKOUT_MINUTES=15
 SESSION_COOKIE_AGE=28800
 SESSION_EXPIRE_AT_BROWSER_CLOSE=True
-# Cambia a False tras revisar la consola del navegador sin violaciones CSP.
-CSP_REPORT_ONLY=True
+# La CSP se aplica (bloquea). Usa True solo para diagnosticar una violación.
+CSP_REPORT_ONLY=False
 LOG_LEVEL=INFO
 LOG_FILE=
 
@@ -578,6 +578,43 @@ sudo systemctl restart sgr
 El comando verifica el SHA-256 del respaldo antes de restaurar e informa el tiempo empleado. Registra la fecha, el respaldo usado, el tiempo total desde que empezaste (incluida la creación de la instancia) y el resultado en el registro de pruebas del equipo. Las evidencias no requieren restauración: permanecen en S3 con versionado.
 
 Si alguna vez restauras en producción: detén la aplicación (`sudo systemctl stop sgr`), haz primero un respaldo del estado actual y luego restaura.
+
+### 10.2 Retención de registros (Ley 21.663)
+
+Para investigar un incidente y preparar el reporte de 72 horas (gravedad, impacto e indicadores de compromiso) hacen falta los registros de los días previos. Por defecto, journald puede descartarlos al reiniciar o rotarlos pronto. Se conservan **1 año** en disco (ajusta el plazo según la política de la Municipalidad):
+
+```bash
+sudo mkdir -p /etc/systemd/journald.conf.d /var/log/journal
+sudo tee /etc/systemd/journald.conf.d/sgr.conf >/dev/null <<'EOF'
+[Journal]
+Storage=persistent
+MaxRetentionSec=1year
+SystemMaxUse=2G
+EOF
+sudo systemctl restart systemd-journald
+
+# Accesos de Nginx: rotación diaria con 365 copias comprimidas.
+sudo sed -i -e 's/^\s*rotate .*/    rotate 365/' -e 's/^\s*weekly/    daily/' /etc/logrotate.d/nginx
+```
+
+Consulta los registros de seguridad de un período: `sudo journalctl -u sgr --since "2026-11-01" | grep -i "sgr.security"`. Además, la auditoría, los eventos de seguridad y los incidentes quedan en la base de datos sin vencimiento y viajan en los respaldos.
+
+### 10.3 Gestión de incidentes de ciberseguridad (Ley 21.663)
+
+La Municipalidad es prestadora de servicios esenciales: debe reportar al CSIRT Nacional los incidentes con **efecto significativo**. Uno de los criterios es afectar sistemas con datos personales, y el SGR los contiene. Los plazos corren desde la detección:
+
+| Hito | Plazo | Dónde |
+|---|---|---|
+| Alerta temprana | 3 horas | <https://portal.anci.gob.cl> |
+| Actualización (evaluación, gravedad, impacto, IoC) | 72 horas | ídem |
+| Informe final | 15 días corridos | ídem |
+
+En el SGR (menú **Incidentes**, solo Administrador; el Coordinador puede consultar):
+
+1. **Eventos de seguridad.** El sistema detecta y avisa por correo a `ALERTAS_EMAIL` de lo siguiente: bloqueos por fuerza bruta, 2FA bloqueada, accesos denegados repetidos, intentos de alterar la auditoría y triggers de auditoría ausentes (estos últimos se revisan cada minuto en el monitor). **`ALERTAS_EMAIL` es obligatorio en producción.**
+2. **Registrar el incidente** (también desde un evento, con "Crear incidente") y marcar los criterios de efecto significativo. Si hay alguno, el sistema envía de inmediato los tres vencimientos y vuelve a avisar cuando cada plazo está por vencer y cuando vence.
+3. **Reportar en el portal de la ANCI** y registrar cada envío, con su folio, en el incidente. **Exportar reporte** genera un texto con los datos de cada hito.
+4. Registrar las acciones en la **bitácora** (no se edita ni se borra) y cerrar el incidente con su causa raíz.
 
 ## 11. Actualizar el sistema con cambios de GitHub
 

@@ -44,6 +44,8 @@ Leyenda: ✅ permitido · 🔸 solo dentro de su ámbito · ❌ denegado (403) �
 | Tablero personal | ✅ | ✅ | ✅ | 🔸 propio |
 | Informes y exportación CSV | ✅ | ✅ | 🔸 delegación | ❌ |
 | Auditoría (web y `/api/auditoria/`) | ✅ | ✅ | ❌ | ❌ |
+| Incidentes de seguridad (Ley 21.663): ver y exportar reporte | ✅ | ✅ | ❌ | ❌ |
+| Incidentes de seguridad: registrar, actualizar, marcar envíos al CSIRT, bitácora | ✅ | ❌ | ❌ | ❌ |
 
 ### Mantenedores (configuración)
 

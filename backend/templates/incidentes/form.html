@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}{{ titulo }} | Matriz SGR{% endblock %}
+{% block content %}
+<div class="d-flex flex-column gap-4">
+  <div class="card sgr-page-header sgr-image-header p-4 shadow-sm border-0">
+    <span class="badge bg-white text-danger text-uppercase fw-bold align-self-start mb-1">Ley 21.663 · Ciberseguridad</span>
+    <h3 class="fw-black mb-0 text-white">{{ titulo }}</h3>
+    <small class="text-white-50">Si se marca algún efecto significativo, el incidente debe reportarse al CSIRT Nacional: alerta temprana en 3 horas desde la detección.</small>
+  </div>
+  <form method="post" class="card card-body border-0 shadow-sm" novalidate>
+    {% csrf_token %}
+    {% for error in form.non_field_errors %}<div class="alert alert-danger">{{ error }}</div>{% endfor %}
+    <div class="row g-3">
+      {% include "incidentes/_campos.html" %}
+    </div>
+    <div class="d-flex gap-2 mt-4">
+      <button type="submit" class="btn btn-danger">Registrar incidente</button>
+      <a href="{% url 'web_incidentes' %}" class="btn btn-outline-secondary">Cancelar</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

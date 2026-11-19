@@ -36,6 +36,9 @@ def registrar_acceso_denegado(request, detalle=''):
         )
     except Exception:  # El registro nunca debe impedir responder el 403.
         logger.exception('No se pudo auditar el acceso denegado a %s', ruta)
+    from sgr_app.services.eventos_seguridad import revisar_accesos_denegados
+
+    revisar_accesos_denegados(usuario, obtener_ip_cliente(request) or None)
 
 
 MENSAJE_ERROR_INTERNO = (
