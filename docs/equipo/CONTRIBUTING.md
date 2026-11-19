@@ -157,7 +157,7 @@ Programas el CRUD de empleados:
 **Si necesitas instalar librerías:**
 ```powershell
 pip install pillow  # Por ejemplo, para manejar imágenes de perfiles
-pip freeze > requirements.txt
+# Agrega la librería con su versión exacta en backend/requirements.txt (no uses pip freeze)
 ```
 
 **Ejecutar migraciones:**

@@ -246,7 +246,7 @@ python -m venv venv
 .\venv\Scripts\activate
 pip install django
 django-admin startproject config .
-pip freeze > requirements.txt
+# Agrega la librería con su versión exacta en backend/requirements.txt (no uses pip freeze)
 
 # Inicializar Git
 git init

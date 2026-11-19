@@ -33,3 +33,9 @@ ejecución bloquea `npm.ps1`, usa `npm.cmd run dev`.
 - API REST con JWT y Swagger (`/api/v1/docs/`): [`docs/API_REST.md`](docs/API_REST.md).
 - Pruebas: desde `backend/`, ejecuta `python manage.py test sgr_app`.
 - Variables privadas: usa `backend/.env.example` como referencia. No publiques `.env`, claves ni bases de datos.
+- Despliegue en AWS (EC2 + MariaDB + Nginx): [`AWS_PHPMYADMIN_DEPLOYMENT.md`](AWS_PHPMYADMIN_DEPLOYMENT.md).
+- Columnas duplicadas heredadas y su unificación: [`docs/COLUMNAS_DUPLICADAS.md`](docs/COLUMNAS_DUPLICADAS.md).
+- Guías de trabajo del equipo (Git, Jira, PR, pruebas): [`docs/equipo/`](docs/equipo/).
+
+Este directorio (`BackEnd3-main`) es la raíz del repositorio: la guía de despliegue y las
+unidades de systemd esperan `backend/` y `deploy/` directamente en la raíz del clon.

@@ -201,7 +201,7 @@ pip install nombre-libreria==1.2.3
 pip list
 
 # Generar requirements.txt SIEMPRE después de instalar
-pip freeze > requirements.txt
+# Agrega la librería con su versión exacta en backend/requirements.txt (no uses pip freeze)
 
 # Instalar desde requirements
 pip install -r requirements.txt
@@ -316,7 +316,7 @@ ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost').split(',')
 
 ```powershell
 pip install python-dotenv
-pip freeze > requirements.txt
+# Agrega la librería con su versión exacta en backend/requirements.txt (no uses pip freeze)
 ```
 
 ---

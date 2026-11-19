@@ -183,7 +183,7 @@ pip install pillow
 **Actualizar requirements.txt:**
 
 ```powershell
-pip freeze > requirements.txt
+# Agrega la librería con su versión exacta en backend/requirements.txt (no uses pip freeze)
 ```
 
 Esto asegura que cuando Dev 1 o Dev 2 hagan `git pull`, también instalen `pillow`.

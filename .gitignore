@@ -69,6 +69,15 @@ Thumbs.db
 kazu_docs/
 REPORTE_REVISION_NOCTURNA.md
 
+# Planillas, exportaciones y volcados con datos personales (nunca a Git)
+*.xlsx
+*.xls
+*.csv
+*.zip
+*.gz
+sgr-data*.json
+.ruff_cache/
+
 # Respaldos y estado del monitor (contienen datos de la base; nunca a Git)
 backend/respaldos/
 respaldos/
