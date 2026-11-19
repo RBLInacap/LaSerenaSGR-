@@ -431,3 +431,51 @@ class CodigoRecuperacionUnicoTests(TestCase):
         self._codigo()
         self.assertEqual(PasswordResetCode.todos.filter(user=self.usuario).count(), 2)
         self.assertEqual(PasswordResetCode.objects.filter(user=self.usuario).count(), 1)
+
+
+class UsuarioConsultaTests(TestCase):
+    """CU-38: solo lectura de datos operativos, pero gestiona su propia cuenta."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.delegacion = Delegacion.objects.create(nombre='Delegación Consulta', codigo='DCON')
+        cls.consulta = Usuario.objects.create_user(
+            username='consulta.cuenta@sim.cl', email='consulta.cuenta@sim.cl', password='Clave.Inicial.2026',
+            first_name='Camilo', last_name='Torres Paz', rol=Usuario.Rol.CONSULTA,
+        )
+        cls.funcionario = Usuario.objects.create_user(
+            username='func.consulta@sim.cl', password='Clave.Inicial.2026', first_name='Felipe',
+            rol=Usuario.Rol.FUNCIONARIO, delegacion=cls.delegacion,
+        )
+        cls.actividad = Actividad.objects.create(
+            funcionario=cls.funcionario, delegacion=cls.delegacion,
+            actividad_solicitud='Actividad sin compromiso',
+        )
+
+    def test_consulta_cambia_sus_datos_y_su_contrasena_en_mi_ficha(self):
+        self.client.force_login(self.consulta)
+        respuesta = self.client.post('/mi-ficha/', {
+            'first_name': 'Camilo', 'last_name': 'Torres Paz', 'email': 'consulta.cuenta@sim.cl',
+            'email_confirmacion': 'consulta.cuenta@sim.cl', 'telefono': '+56 9 7777 8888',
+            'password_actual': 'Clave.Inicial.2026', 'password_nueva': 'Clave.Nueva.Segura.2026',
+            'password_confirmacion': 'Clave.Nueva.Segura.2026',
+        })
+        self.assertEqual(respuesta.status_code, 302)
+        self.consulta.refresh_from_db()
+        self.assertEqual(self.consulta.telefono, '+56977778888')
+        self.assertTrue(self.consulta.check_password('Clave.Nueva.Segura.2026'))
+
+    def test_consulta_sigue_sin_poder_escribir_datos_operativos(self):
+        self.client.force_login(self.consulta)
+        respuesta = self.client.post('/tubo/crear/', {'solicitante': 'X'})
+        self.assertEqual(respuesta.status_code, 403)
+
+    def test_consulta_no_ve_el_boton_asignar_compromiso(self):
+        enlace = f'/tubo/crear/?actividad_id={self.actividad.pk}'
+        self.client.force_login(self.funcionario)
+        self.assertContains(self.client.get('/personal/'), enlace)
+        self.client.force_login(self.consulta)
+        respuesta = self.client.get(f'/personal/?id={self.funcionario.pk}')
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertNotContains(respuesta, enlace)
+        self.assertContains(respuesta, 'Sin compromiso')  # la fila sí se muestra

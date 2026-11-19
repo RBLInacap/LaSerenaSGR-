@@ -389,10 +389,12 @@
                     {% else %}{{ compromiso.get_estado_display }}{% endif %}
                   </a>
                   {% endfor %}
-                {% else %}
+                {% elif not request.user.es_consulta %}
                   <a href="{% url 'web_crear_compromiso' %}?actividad_id={{ act.id }}" class="btn btn-outline-danger btn-sm">
                     <i class="bi bi-link-45deg"></i> Asignar compromiso
                   </a>
+                {% else %}
+                  <span class="text-secondary small">Sin compromiso</span>
                 {% endif %}
               </td>
               <td class="text-end ps-2 pe-4 py-3 text-nowrap">

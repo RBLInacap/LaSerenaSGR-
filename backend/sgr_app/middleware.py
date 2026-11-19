@@ -42,6 +42,8 @@ class SoloLecturaConsultaMiddleware:
     RUTAS_PERMITIDAS = (
         '/logout/',
         '/verificar-2fa/',
+        # Mi ficha solo edita la cuenta del propio usuario (datos y contraseña).
+        '/mi-ficha/',
         '/mi-cuenta/2fa/',
         '/crear-contrasena/',
         '/password-reset/',
