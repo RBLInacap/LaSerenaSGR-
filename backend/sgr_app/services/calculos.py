@@ -116,9 +116,7 @@ def recalcular_indicadores_actividad(actividad: Actividad):
                     item.periodo.fecha_termino,
                 ),
                 estado__in=(
-                    CompromisoAgenda.Estado.COMPLETADO,
                     CompromisoAgenda.Estado.REALIZADO,
-                    CompromisoAgenda.Estado.CUMPLIDO,
                 ),
                 actividad__evidencias__estado=Evidencia.Estado.APROBADA,
             ).exclude(
@@ -180,9 +178,7 @@ def _avances_compromisos_por_item(funcionario, periodo, items):
         actividad__fecha_actividad__range=(periodo.fecha_inicio, periodo.fecha_termino),
         fecha_comprometida__range=(periodo.fecha_inicio, periodo.fecha_termino),
         estado__in=(
-            CompromisoAgenda.Estado.COMPLETADO,
             CompromisoAgenda.Estado.REALIZADO,
-            CompromisoAgenda.Estado.CUMPLIDO,
         ),
         actividad__evidencias__estado=Evidencia.Estado.APROBADA,
     ).exclude(
@@ -340,9 +336,7 @@ def calcular_metricas_funcionario(funcionario: Usuario, periodo: PeriodoMedicion
     compromisos_total = compromisos_periodo.count()
     compromisos_realizados = compromisos_periodo.filter(
         estado__in=(
-            CompromisoAgenda.Estado.COMPLETADO,
             CompromisoAgenda.Estado.REALIZADO,
-            'CUMPLIDO',
         )
     ).count()
     compromisos_realizados_fuera_plazo = compromisos_periodo.filter(
@@ -428,9 +422,7 @@ def calcular_resumen_delegacion(delegacion: Delegacion, periodo: PeriodoMedicion
     comp_total = compromisos_del.count()
     comp_realizados = compromisos_del.filter(
         estado__in=(
-            CompromisoAgenda.Estado.COMPLETADO,
             CompromisoAgenda.Estado.REALIZADO,
-            'CUMPLIDO',
         )
     ).count()
     comp_realizados_fuera_plazo = compromisos_del.filter(

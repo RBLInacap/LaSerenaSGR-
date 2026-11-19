@@ -1340,9 +1340,7 @@ class ItemMedicion(models.Model):
                     self.periodo.fecha_termino,
                 ),
                 estado__in=(
-                    CompromisoAgenda.Estado.COMPLETADO,
                     CompromisoAgenda.Estado.REALIZADO,
-                    CompromisoAgenda.Estado.CUMPLIDO,
                 ),
                 actividad__evidencias__estado=Evidencia.Estado.APROBADA,
             ).exclude(
@@ -1710,26 +1708,15 @@ class CompromisoAgenda(models.Model):
     """
     Entidad de seguimiento operativo asociada a una actividad (Clase Compromiso).
     """
-    ESTADO_CHOICES = [
-        ('INGRESADO', 'Ingresado'),
-        ('PENDIENTE', 'Pendiente'),
-        ('EN_PROCESO', 'En Proceso'),
-        ('COMPLETADO', 'Completado'),
-        ('VENCIDO', 'Vencido'),
-        ('REPROGRAMADO', 'Reprogramado'),
-        ('CUMPLIDO', 'Cumplido'),
-        ('REALIZADO', 'Realizado'),
-    ]
-
     class Estado(models.TextChoices):
+        # COMPLETADO y CUMPLIDO eran sinónimos de REALIZADO; la migración 0045
+        # los convirtió (con auditoría). La especificación usa "realizado".
         INGRESADO = 'INGRESADO', 'Ingresado'
         PENDIENTE = 'PENDIENTE', 'Pendiente'
         EN_PROCESO = 'EN_PROCESO', 'En Proceso'
-        COMPLETADO = 'COMPLETADO', 'Completado'
         VENCIDO = 'VENCIDO', 'Vencido'
         REPROGRAMADO = 'REPROGRAMADO', 'Reprogramado'
         REALIZADO = 'REALIZADO', 'Realizado'
-        CUMPLIDO = 'CUMPLIDO', 'Cumplido'
 
     origen = models.CharField(max_length=100, default='Vecino', verbose_name="Origen del Compromiso")
     solicitante = models.CharField(max_length=150, help_text="Nombre anonimizado de vecino u organización")
@@ -1741,7 +1728,7 @@ class CompromisoAgenda(models.Model):
     fecha_comprometida = models.DateField(default=timezone.localdate)
     area_apoyo = models.CharField(max_length=150, default='Operaciones', verbose_name="Área / Unidad de Apoyo")
     descripcion = models.TextField(blank=True, default='')
-    estado = models.CharField(max_length=30, choices=ESTADO_CHOICES, default='PENDIENTE', verbose_name="Estado")
+    estado = models.CharField(max_length=30, choices=Estado.choices, default=Estado.PENDIENTE, verbose_name="Estado")
     observacion = models.TextField(blank=True, null=True, verbose_name="Observaciones / Avances")
     observaciones = models.TextField(blank=True, null=True)
     actividad = models.ForeignKey(Actividad, on_delete=models.PROTECT, null=True, blank=True, related_name='compromisos', verbose_name="Actividad Origen")
@@ -1832,11 +1819,9 @@ class CompromisoAgenda(models.Model):
     def estado_tablero(self):
         evidencias = self.actividad.evidencias.all() if self.actividad_id else Evidencia.objects.none()
         if evidencias.exists() and not evidencias.exclude(estado=Evidencia.Estado.APROBADA).exists():
-            return self.Estado.COMPLETADO
+            return self.Estado.REALIZADO
         fecha_limite = self.fecha_comprometida
-        if fecha_limite < timezone.localdate() and self.estado not in [
-            self.Estado.COMPLETADO, self.Estado.REALIZADO, 'CUMPLIDO'
-        ]:
+        if fecha_limite < timezone.localdate() and self.estado != self.Estado.REALIZADO:
             return self.Estado.VENCIDO
         if self.estado == self.Estado.REPROGRAMADO:
             return self.Estado.REPROGRAMADO
@@ -1872,10 +1857,6 @@ class CompromisoAgenda(models.Model):
             },
             self.Estado.REPROGRAMADO: {
                 self.Estado.PENDIENTE,
-                self.Estado.EN_PROCESO,
-                self.Estado.REALIZADO,
-            },
-            self.Estado.COMPLETADO: {
                 self.Estado.EN_PROCESO,
                 self.Estado.REALIZADO,
             },
@@ -1943,7 +1924,7 @@ class CompromisoAgenda(models.Model):
         completado = evidencias.exists() and not evidencias.exclude(
             estado=Evidencia.Estado.APROBADA
         ).exists()
-        self.estado = self.Estado.COMPLETADO if completado else self.Estado.EN_PROCESO
+        self.estado = self.Estado.REALIZADO if completado else self.Estado.EN_PROCESO
         if completado and not self.fecha_realizacion:
             self.fecha_realizacion = (
                 evidencias.order_by('-fecha_validacion')
@@ -1978,7 +1959,7 @@ class CompromisoAgenda(models.Model):
 
     @property
     def montoEjecutado(self):
-        return 1.0 if self.estado in ['REALIZADO', 'COMPLETADO', 'CUMPLIDO'] else 0.0
+        return 1.0 if self.estado == self.Estado.REALIZADO else 0.0
 
     def actualizar_estado(self, nuevo_estado: str, observacion_nueva=""):
         """Modificar la fase del compromiso y registrar observación."""
@@ -1992,7 +1973,7 @@ class CompromisoAgenda(models.Model):
 
     def fecha_vencida(self) -> bool:
         """Evalúa si la fecha límite ya sobrepasó hoy sin haber sido cumplido."""
-        if self.estado in ['CUMPLIDO', 'REALIZADO', 'COMPLETADO', 'CANCELADO']:
+        if self.estado == self.Estado.REALIZADO:
             return False
         return self.fecha_comprometida < date.today()
 
@@ -2015,7 +1996,8 @@ class CompromisoAgenda(models.Model):
         self.save()
 
     def marcarCompletado(self):
-        self.estado = self.Estado.COMPLETADO
+        """Método del diagrama de clases: deja el compromiso como realizado."""
+        self.estado = self.Estado.REALIZADO
         self.save()
 
 

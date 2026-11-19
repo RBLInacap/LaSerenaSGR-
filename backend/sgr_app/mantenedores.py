@@ -656,8 +656,6 @@ class DelegacionDeleteView(SoftDeleteView):
         abiertos = self.object.compromisos.filter(anulado=False).exclude(
             estado__in=(
                 CompromisoAgenda.Estado.REALIZADO,
-                CompromisoAgenda.Estado.COMPLETADO,
-                CompromisoAgenda.Estado.CUMPLIDO,
             ),
         ).count()
         if abiertos:

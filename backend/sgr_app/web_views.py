@@ -1034,8 +1034,6 @@ def web_alertas_operativas(request):
     ).exclude(
         estado__in=(
             CompromisoAgenda.Estado.REALIZADO,
-            CompromisoAgenda.Estado.COMPLETADO,
-            'CUMPLIDO',
             'CANCELADO',
         )
     )
@@ -2562,9 +2560,7 @@ def web_tubo(request):
     ]
     if filtro_estado:
         realizados = {
-            CompromisoAgenda.Estado.COMPLETADO,
             CompromisoAgenda.Estado.REALIZADO,
-            CompromisoAgenda.Estado.CUMPLIDO,
         }
         compromisos = [
             c for c in compromisos
@@ -2618,9 +2614,7 @@ def web_tubo(request):
         elif estado == CompromisoAgenda.Estado.REPROGRAMADO:
             resumen['reprogramado'] += 1
         elif estado in [
-            CompromisoAgenda.Estado.COMPLETADO,
             CompromisoAgenda.Estado.REALIZADO,
-            CompromisoAgenda.Estado.CUMPLIDO,
         ]:
             resumen['realizado'] += 1
         if compromiso.realizado_fuera_de_plazo:
@@ -2692,7 +2686,7 @@ def web_tubo(request):
         'ingresados': [c for c in compromisos if c.estado_tablero == CompromisoAgenda.Estado.INGRESADO],
         'pendientes': [c for c in compromisos if c.estado_tablero == CompromisoAgenda.Estado.PENDIENTE],
         'en_proceso': [c for c in compromisos if c.estado_tablero == CompromisoAgenda.Estado.EN_PROCESO],
-        'realizados': [c for c in compromisos if c.estado_tablero in [CompromisoAgenda.Estado.COMPLETADO, CompromisoAgenda.Estado.REALIZADO, CompromisoAgenda.Estado.CUMPLIDO]],
+        'realizados': [c for c in compromisos if c.estado_tablero == CompromisoAgenda.Estado.REALIZADO],
         'vencidos': [c for c in compromisos if c.estado_tablero == CompromisoAgenda.Estado.VENCIDO],
         'reprogramados': [c for c in compromisos if c.estado_tablero == CompromisoAgenda.Estado.REPROGRAMADO],
         'periodo': periodo_activo,

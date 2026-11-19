@@ -15,8 +15,8 @@
     </div>
   </div>
 
-  <span class="badge mb-2 align-self-start {% if item.estado_tablero == 'COMPLETADO' or item.estado_tablero == 'REALIZADO' %}bg-success{% elif item.estado_tablero == 'VENCIDO' %}bg-danger{% elif item.estado_tablero == 'REPROGRAMADO' %}bg-info text-dark{% else %}bg-secondary{% endif %}">
-    {% if item.estado_tablero == 'COMPLETADO' or item.estado_tablero == 'REALIZADO' %}Completado{% elif item.estado_tablero == 'VENCIDO' %}Vencido{% elif item.estado_tablero == 'REPROGRAMADO' %}Reprogramado{% elif item.estado_tablero == 'EN_PROCESO' %}En proceso{% else %}{{ item.get_estado_display }}{% endif %}
+  <span class="badge mb-2 align-self-start {% if item.estado_tablero == 'REALIZADO' %}bg-success{% elif item.estado_tablero == 'VENCIDO' %}bg-danger{% elif item.estado_tablero == 'REPROGRAMADO' %}bg-info text-dark{% else %}bg-secondary{% endif %}">
+    {% if item.estado_tablero == 'REALIZADO' %}Realizado{% elif item.estado_tablero == 'VENCIDO' %}Vencido{% elif item.estado_tablero == 'REPROGRAMADO' %}Reprogramado{% elif item.estado_tablero == 'EN_PROCESO' %}En proceso{% else %}{{ item.get_estado_display }}{% endif %}
   </span>
 
   <div class="fw-bold text-dark small mb-1">{{ item.solicitante }}</div>
@@ -39,7 +39,7 @@
     </div>
   </div>
 
-  {% if item.puede_gestionar and item.estado_tablero != 'COMPLETADO' and item.estado_tablero != 'REALIZADO' %}
+  {% if item.puede_gestionar and item.estado_tablero != 'REALIZADO' %}
     <form method="POST" action="{% url 'web_cambiar_estado_compromiso' item.id %}" class="mt-2 pt-2 border-top">
       {% csrf_token %}
       <select name="estado" class="form-select form-select-sm bg-white text-dark border fw-semibold mb-2" style="font-size: 0.75rem; background-color: #ffffff !important; color: #1e293b !important;" required>

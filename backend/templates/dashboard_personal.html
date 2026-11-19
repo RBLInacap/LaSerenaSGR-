@@ -382,7 +382,7 @@
                   {% for compromiso in act.compromisos_vinculados %}
                   <a href="{% url 'web_tubo' %}?delegacion_id={{ act.delegacion_id }}#compromiso-{{ compromiso.id }}" class="badge bg-danger-subtle text-danger border border-danger text-decoration-none px-2 py-1 d-inline-block mb-1" title="Ver en Tubo de Trabajo colectivo">
                     <i class="bi bi-link-45deg"></i> #{{ compromiso.id }}
-                    {% if compromiso.estado_tablero == 'COMPLETADO' %}Completado
+                    {% if compromiso.estado_tablero == 'REALIZADO' %}Realizado
                     {% elif compromiso.estado_tablero == 'VENCIDO' %}Vencido
                     {% elif compromiso.estado_tablero == 'REPROGRAMADO' %}Reprogramado
                     {% elif compromiso.estado_tablero == 'EN_PROCESO' %}En proceso

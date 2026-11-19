@@ -16,9 +16,7 @@ from django.utils import timezone
 from sgr_app.models import Actividad, CompromisoAgenda
 
 ESTADOS_REALIZADOS = (
-    CompromisoAgenda.Estado.COMPLETADO,
     CompromisoAgenda.Estado.REALIZADO,
-    CompromisoAgenda.Estado.CUMPLIDO,
 )
 SIN_CLASIFICAR = 'Sin clasificar'
 MAX_PUNTOS_MAPA = 500

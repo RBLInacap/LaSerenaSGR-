@@ -2112,7 +2112,7 @@ class ActivityWorkflowTests(TestCase):
         evidencia.estado = Evidencia.Estado.APROBADA
         evidencia.save(update_fields=['estado'])
         compromiso.sincronizar_estado_evidencias()
-        self.assertEqual(compromiso.estado_tablero, CompromisoAgenda.Estado.COMPLETADO)
+        self.assertEqual(compromiso.estado_tablero, CompromisoAgenda.Estado.REALIZADO)
 
         compromiso.fecha_compromiso = self.today - timedelta(days=1)
         compromiso.fecha_comprometida = compromiso.fecha_compromiso
@@ -2450,7 +2450,7 @@ class ActivityWorkflowTests(TestCase):
         compromiso.refresh_from_db()
         self.assertEqual(evidencia.estado, Evidencia.Estado.APROBADA)
         self.assertEqual(evidencia.verificador_id, supervisor.pk)
-        self.assertEqual(compromiso.estado, CompromisoAgenda.Estado.COMPLETADO)
+        self.assertEqual(compromiso.estado, CompromisoAgenda.Estado.REALIZADO)
         audit = RegistroAuditoria.objects.get(
             entidad='Evidencia',
             identificador_registro=str(evidencia.pk),

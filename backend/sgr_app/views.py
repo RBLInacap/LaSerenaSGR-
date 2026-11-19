@@ -363,8 +363,6 @@ class DelegacionViewSet(BajaLogicaMixin, viewsets.ModelViewSet):
         abiertos = delegacion.compromisos.filter(anulado=False).exclude(
             estado__in=(
                 CompromisoAgenda.Estado.REALIZADO,
-                CompromisoAgenda.Estado.COMPLETADO,
-                CompromisoAgenda.Estado.CUMPLIDO,
             ),
         ).count()
         if abiertos:

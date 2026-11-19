@@ -550,7 +550,7 @@ class MatrizSGRTestSuite(TestCase):
         comp.reprogramarFecha(date(2026, 12, 31), motivo="Falta repuesto")
         self.assertFalse(comp.fechaVencida())
         comp.marcarCompletado()
-        self.assertEqual(comp.estado, CompromisoAgenda.Estado.COMPLETADO)
+        self.assertEqual(comp.estado, CompromisoAgenda.Estado.REALIZADO)
 
         # 9. Evidencia: cargarArchivo, solicitarValidacion, validarEvidencia, rechazarEvidencia
         evid.solicitarValidacion()

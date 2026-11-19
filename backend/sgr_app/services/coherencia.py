@@ -77,8 +77,8 @@ def _chequeos_negocio():
         ItemMedicion, MetaModel, ObservacionCompromiso, PeriodoMedicion, RegistroAuditoria, Usuario,
     )
 
-    realizados = ('COMPLETADO', 'REALIZADO', 'CUMPLIDO')
-    estados_compromiso = [valor for valor, _ in CompromisoAgenda.ESTADO_CHOICES]
+    realizados = (CompromisoAgenda.Estado.REALIZADO,)
+    estados_compromiso = list(CompromisoAgenda.Estado.values)
     estados_evidencia = list(Evidencia.Estado.values)
     tipos_positivos, tipos_negativos = ('INCENTIVO', 'BONIFICACION'), ('PENALIZACION', 'DESCUENTO')
     estados_ajuste = ('PENDIENTE', 'APROBADO', 'RECHAZADO')

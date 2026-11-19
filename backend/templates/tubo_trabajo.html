@@ -203,10 +203,10 @@
                     </div>
                   </td>
                   <td class="text-center">
-                    <span class="badge {% if c.estado_tablero == 'COMPLETADO' or c.estado_tablero == 'REALIZADO' %}bg-success{% elif c.estado_tablero == 'VENCIDO' %}bg-danger{% elif c.estado_tablero == 'REPROGRAMADO' %}bg-info text-dark{% elif c.estado_tablero == 'PENDIENTE' %}bg-warning text-dark{% else %}bg-primary{% endif %}">
-                      {% if c.estado_tablero == 'COMPLETADO' or c.estado_tablero == 'REALIZADO' %}Completado{% elif c.estado_tablero == 'VENCIDO' %}Vencido{% elif c.estado_tablero == 'REPROGRAMADO' %}Reprogramado{% elif c.estado_tablero == 'EN_PROCESO' %}En proceso{% else %}{{ c.get_estado_display }}{% endif %}
+                    <span class="badge {% if c.estado_tablero == 'REALIZADO' %}bg-success{% elif c.estado_tablero == 'VENCIDO' %}bg-danger{% elif c.estado_tablero == 'REPROGRAMADO' %}bg-info text-dark{% elif c.estado_tablero == 'PENDIENTE' %}bg-warning text-dark{% else %}bg-primary{% endif %}">
+                      {% if c.estado_tablero == 'REALIZADO' %}Realizado{% elif c.estado_tablero == 'VENCIDO' %}Vencido{% elif c.estado_tablero == 'REPROGRAMADO' %}Reprogramado{% elif c.estado_tablero == 'EN_PROCESO' %}En proceso{% else %}{{ c.get_estado_display }}{% endif %}
                     </span>
-                    {% if c.puede_gestionar and c.estado_tablero != 'COMPLETADO' and c.estado_tablero != 'REALIZADO' %}
+                    {% if c.puede_gestionar and c.estado_tablero != 'REALIZADO' %}
                       <form method="POST" action="{% url 'web_cambiar_estado_compromiso' c.id %}" class="mt-1">
                         {% csrf_token %}
                         <select name="estado" class="form-select form-select-sm mb-1" aria-label="Cambiar etapa del compromiso" required>
