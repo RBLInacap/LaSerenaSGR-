@@ -2590,6 +2590,9 @@ class AjusteIncentivo(models.Model):
     estado = models.CharField(max_length=20, default='PENDIENTE')
     aprobado_por = models.ForeignKey(Usuario, on_delete=models.SET_NULL, null=True, blank=True, related_name='ajustes_aprobados')
     fecha_aprobacion = models.DateTimeField(null=True, blank=True)
+    # Observación de quien aprueba o rechaza (CU-20). Antes se pegaba al final
+    # del motivo; ahora el motivo original queda intacto (migración 0049).
+    observacion_decision = models.TextField(blank=True, default='', verbose_name='Observación de la decisión')
 
     class Meta:
         verbose_name = 'Ajuste de Incentivo / Penalización'
@@ -2654,7 +2657,7 @@ class AjusteIncentivo(models.Model):
 
     aplicarAjuste = aplicar_ajuste
 
-    def aprobarAjuste(self, funcionarioAprobador) -> bool:
+    def aprobarAjuste(self, funcionarioAprobador, observacion: str = '') -> bool:
         if self.estado != "PENDIENTE":
             return False
         if self.periodo and self.periodo.cerrado:
@@ -2669,7 +2672,8 @@ class AjusteIncentivo(models.Model):
         self.estado = "APROBADO"
         self.aprobado_por = funcionarioAprobador
         self.fecha_aprobacion = timezone.now()
-        self.save(update_fields=['estado', 'aprobado_por', 'fecha_aprobacion'])
+        self.observacion_decision = (observacion or '').strip()
+        self.save(update_fields=['estado', 'aprobado_por', 'fecha_aprobacion', 'observacion_decision'])
         return True
 
     def rechazarAjuste(self, funcionarioAprobador, motivoRechazo: str = None) -> bool:
@@ -2687,9 +2691,8 @@ class AjusteIncentivo(models.Model):
         self.estado = "RECHAZADO"
         self.aprobado_por = funcionarioAprobador
         self.fecha_aprobacion = timezone.now()
-        if motivoRechazo:
-            self.motivo += f"\n[RECHAZADO]: {motivoRechazo}"
-        self.save(update_fields=['estado', 'aprobado_por', 'fecha_aprobacion', 'motivo'])
+        self.observacion_decision = (motivoRechazo or '').strip()
+        self.save(update_fields=['estado', 'aprobado_por', 'fecha_aprobacion', 'observacion_decision'])
         return True
 
     def clean(self):

@@ -479,3 +479,83 @@ class UsuarioConsultaTests(TestCase):
         self.assertEqual(respuesta.status_code, 200)
         self.assertNotContains(respuesta, enlace)
         self.assertContains(respuesta, 'Sin compromiso')  # la fila sí se muestra
+
+
+class AjusteObservacionDecisionTests(TestCase):
+    """CU-20: la observación de la decisión no altera el motivo original."""
+
+    @classmethod
+    def setUpTestData(cls):
+        from sgr_app.models import ConceptoAjuste
+
+        cls.funcionario = Usuario.objects.create_user(username='aj.func@sim.cl', password='x')
+        cls.coordinador = Usuario.objects.create_user(username='aj.coord@sim.cl', password='x',
+                                                      rol=Usuario.Rol.COORDINADOR)
+        cls.admin = Usuario.objects.create_user(username='aj.admin@sim.cl', password='x',
+                                                rol=Usuario.Rol.ADMINISTRADOR)
+        cls.concepto = ConceptoAjuste.objects.create(nombre='Reclamo prueba', naturaleza='NEGATIVO')
+
+    def _ajuste(self, motivo='Reclamo por atraso'):
+        from sgr_app.models import AjusteIncentivo
+
+        return AjusteIncentivo.objects.create(funcionario=self.funcionario, concepto=self.concepto,
+                                              motivo=motivo, valor_porcentaje=3, registrado_por=self.coordinador)
+
+    def test_rechazo_guarda_la_observacion_aparte(self):
+        ajuste = self._ajuste()
+        ajuste.rechazarAjuste(self.admin, 'Reclamo no acreditado')
+        ajuste.refresh_from_db()
+        self.assertEqual(ajuste.motivo, 'Reclamo por atraso')
+        self.assertEqual(ajuste.observacion_decision, 'Reclamo no acreditado')
+
+    def test_aprobacion_conserva_la_observacion_escrita(self):
+        self.client.force_login(self.admin)
+        ajuste = self._ajuste()
+        self.client.post(f'/ajustes/{ajuste.pk}/decidir/', {'decision': 'APROBAR',
+                                                            'observacion': 'Acreditado con acta'})
+        ajuste.refresh_from_db()
+        self.assertEqual(ajuste.estado, 'APROBADO')
+        self.assertEqual(ajuste.motivo, 'Reclamo por atraso')
+        self.assertEqual(ajuste.observacion_decision, 'Acreditado con acta')
+
+    def test_migracion_separa_motivos_antiguos_y_audita(self):
+        import importlib
+
+        from django.apps import apps
+
+        from sgr_app.models import AjusteIncentivo, RegistroAuditoria
+
+        migracion = importlib.import_module('sgr_app.migrations.0049_ajuste_observacion_decision')
+        ajuste = self._ajuste()
+        AjusteIncentivo.objects.filter(pk=ajuste.pk).update(
+            motivo='Reclamo por atraso\n[RECHAZADO]: Reclamo no acreditado')
+        migracion.separar(apps, None)
+        ajuste.refresh_from_db()
+        self.assertEqual(ajuste.motivo, 'Reclamo por atraso')
+        self.assertEqual(ajuste.observacion_decision, 'Reclamo no acreditado')
+        auditoria = RegistroAuditoria.objects.get(accion='SEPARAR_OBSERVACION_AJUSTE')
+        self.assertIn('[RECHAZADO]', auditoria.valor_anterior['motivo'])
+
+
+class ConciliacionTareasTrasRestaurarTests(TestCase):
+    def test_cierra_el_respaldo_en_curso_y_registra_la_restauracion(self):
+        from datetime import datetime, timezone as dt_timezone
+        from pathlib import Path
+
+        from sgr_app.management.commands.restaurar_base_datos import _conciliar_tareas
+        from sgr_app.models import EjecucionTarea
+
+        momento = datetime(2026, 11, 19, 19, 30, 5, tzinfo=dt_timezone.utc)
+        respaldo = EjecucionTarea.objects.create(nombre='respaldar_base_datos', inicio=momento)
+        otra = EjecucionTarea.objects.create(nombre='purgar_evidencias_vencidas', inicio=momento)
+
+        _conciliar_tareas(Path('sgr-respaldo-20261119-193005.sql.gz'), 1.5)
+
+        respaldo.refresh_from_db()
+        otra.refresh_from_db()
+        self.assertTrue(respaldo.exito)
+        self.assertIsNotNone(respaldo.fin)
+        self.assertFalse(otra.exito)
+        self.assertIn('Interrumpida', otra.detalle)
+        self.assertFalse(EjecucionTarea.objects.filter(exito__isnull=True).exists())
+        self.assertTrue(EjecucionTarea.objects.filter(nombre='restaurar_base_datos', exito=True).exists())

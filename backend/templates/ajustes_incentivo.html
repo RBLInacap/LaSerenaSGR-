@@ -92,6 +92,7 @@
                   {% if ajuste.registrado_por %}{{ ajuste.registrado_por.get_full_name|default:ajuste.registrado_por.username }}{% else %}Responsable no registrado{% endif %}
                   {% if ajuste.aprobado_por %}
                   <small class="d-block text-secondary">Revisó: {{ ajuste.aprobado_por.get_full_name|default:ajuste.aprobado_por.username }}</small>
+                  {% if ajuste.observacion_decision %}<small class="d-block text-secondary fst-italic">“{{ ajuste.observacion_decision }}”</small>{% endif %}
                   {% endif %}
                 </td>
                 <td>

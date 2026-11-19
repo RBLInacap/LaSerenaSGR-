@@ -12,16 +12,55 @@ Uso:
 import gzip
 import hashlib
 import os
+import re
 import shutil
 # Se ejecuta un binario fijo (mariadb-dump/mariadb) sin shell.
 import subprocess  # nosec B404
 import tempfile
 import time
+from datetime import datetime, timedelta, timezone as dt_timezone
 from pathlib import Path
 
 from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 from django.db import connection
+from django.utils import timezone
+
+
+def _conciliar_tareas(ruta, minutos):
+    """Deja coherente el historial de tareas tras restaurar.
+
+    El volcado se toma mientras corre `respaldar_base_datos`, así que incluye
+    esa ejecución "en curso" (exito=NULL). Tras restaurar, ninguna tarea del
+    volcado sigue corriendo: la del respaldo usado terminó bien (el archivo
+    existe y su SHA-256 se verificó) y cualquier otra quedó interrumpida.
+    Luego registra la restauración misma (evidencia del RTO).
+    """
+    from sgr_app.models import EjecucionTarea
+
+    ahora = timezone.now()
+    m = re.search(r'(\d{8}-\d{6})', ruta.name)
+    momento = (
+        datetime.strptime(m.group(1), '%Y%m%d-%H%M%S').replace(tzinfo=dt_timezone.utc) if m else None
+    )
+    for tarea in EjecucionTarea.objects.filter(exito__isnull=True):
+        es_este_respaldo = (
+            momento is not None
+            and tarea.nombre == 'respaldar_base_datos'
+            and abs(tarea.inicio - momento) <= timedelta(seconds=10)
+        )
+        tarea.fin = ahora
+        tarea.exito = es_este_respaldo
+        tarea.detalle = (
+            f'{ruta.name}: completado (cerrado al restaurar este respaldo).'
+            if es_este_respaldo
+            else 'Interrumpida: la base se restauró desde un respaldo tomado durante su ejecución.'
+        )
+        tarea.save(update_fields=['fin', 'exito', 'detalle'])
+    EjecucionTarea.objects.create(
+        nombre='restaurar_base_datos', inicio=ahora - timedelta(minutes=minutos), fin=ahora,
+        exito=True, detalle=f'Restaurado desde {ruta.name} en {minutos:.1f} minutos.',
+    )
 
 
 def _sha256(ruta):
@@ -129,6 +168,9 @@ class Command(BaseCommand):
                 self._restaurar_sqlite(ruta)
             else:
                 raise CommandError(f'Motor no soportado: {connection.vendor}')
+
+            minutos = (time.monotonic() - inicio) / 60
+            _conciliar_tareas(ruta, minutos)
 
         minutos = (time.monotonic() - inicio) / 60
         self.stdout.write(self.style.SUCCESS(

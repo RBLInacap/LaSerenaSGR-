@@ -904,6 +904,7 @@ class AjusteIncentivoSerializer(serializers.ModelSerializer):
             'id', 'concepto', 'concepto_nombre', 'tipo', 'motivo', 'valor_porcentaje',
             'efecto_porcentaje', 'funcionario', 'funcionario_nombre', 'periodo', 'periodo_nombre',
             'estado', 'fecha_registro', 'registrado_por', 'aprobado_por', 'fecha_aprobacion',
+            'observacion_decision',
         ]
 
     def get_funcionario_nombre(self, obj) -> str:

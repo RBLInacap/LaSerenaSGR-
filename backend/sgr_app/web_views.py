@@ -407,6 +407,7 @@ def _snapshot_ajuste(ajuste):
         'periodo_id': ajuste.periodo_id,
         'tipo': ajuste.tipo,
         'motivo': ajuste.motivo,
+        'observacion_decision': ajuste.observacion_decision,
         'valor_porcentaje': ajuste.valor_porcentaje,
         'estado': ajuste.estado,
         'registrado_por_id': ajuste.registrado_por_id,
@@ -558,7 +559,7 @@ def web_decidir_ajuste_incentivo(request, ajuste_id):
         valor_anterior = _snapshot_ajuste(ajuste)
         try:
             if form.cleaned_data['decision'] == 'APROBAR':
-                ajuste.aprobarAjuste(request.user)
+                ajuste.aprobarAjuste(request.user, form.cleaned_data['observacion'].strip())
                 accion = 'APROBAR_AJUSTE_INCENTIVO'
             else:
                 ajuste.rechazarAjuste(
