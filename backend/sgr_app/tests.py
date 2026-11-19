@@ -479,8 +479,15 @@ class MatrizSGRTestSuite(TestCase):
         data = resp.json()
         self.assertEqual(data['direccion'], 'Balmaceda 1234, La Serena')
         self.assertIsNotNone(data['evidencia'])
-        self.assertEqual(data['evidencia']['url_foto_simulada_2'], 'https://ejemplo.cl/foto2.jpg')
-        self.assertEqual(data['evidencia']['url_foto_simulada_3'], 'https://ejemplo.cl/foto3.jpg')
+        self.assertEqual(data['evidencia']['url_foto_simulada'], 'https://ejemplo.cl/foto1.jpg')
+        # Cada foto es una evidencia con su propio código verificador.
+        from sgr_app.models import Evidencia
+        evidencias = Evidencia.objects.filter(actividad_id=data['id']).order_by('pk')
+        self.assertEqual(
+            [e.url_foto_simulada for e in evidencias],
+            ['https://ejemplo.cl/foto1.jpg', 'https://ejemplo.cl/foto2.jpg', 'https://ejemplo.cl/foto3.jpg'],
+        )
+        self.assertEqual(len({e.codigo_verificador for e in evidencias}), 3)
 
     # 12. Métodos del Diagrama de Clases UML (Documento de Soledad Valdebenito)
     def test_metodos_diagrama_clases_soledad(self):

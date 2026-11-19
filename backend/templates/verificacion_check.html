@@ -97,16 +97,6 @@
                 {% if ev.archivos_deshabilitados_en %}
                   <div class="text-warning-emphasis">Archivo deshabilitado según política de retención el {{ ev.archivos_deshabilitados_en|date:"d/m/Y" }}. Se conserva en el archivo institucional.</div>
                 {% endif %}
-                {% if ev.fotos_adicionales %}
-                  <div class="d-flex gap-1 mt-2 align-items-center">
-                    <small class="text-secondary me-1" style="font-size: 0.72rem;">Fotos extra:</small>
-                    {% for f in ev.fotos_adicionales %}
-                      <a href="{{ f.url }}" target="_blank" title="Evidencia {{ f.num }}">
-                        <img src="{{ f.url }}" class="rounded border" style="width: 36px; height: 36px; object-fit: cover;" alt="Fotografía {{ f.num }} de la evidencia {{ ev.codigo_verificador }}">
-                      </a>
-                    {% endfor %}
-                  </div>
-                {% endif %}
                 {% if ev.observacion %}
                   <div class="p-2 bg-warning-subtle rounded border border-warning mt-2 text-dark">
                     <small class="fw-bold d-block text-danger">{% if ev.estado == 'CORRECCION' %}Corrección solicitada:{% else %}Motivo de rechazo:{% endif %}</small>

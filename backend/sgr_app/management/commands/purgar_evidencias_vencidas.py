@@ -42,7 +42,5 @@ class Command(BaseCommand):
         ).filter(
             Q(archivo__isnull=False)
             | Q(archivo_foto__isnull=False)
-            | Q(archivo_foto_2__isnull=False)
-            | Q(archivo_foto_3__isnull=False)
         )
         return evidencias.update(archivos_deshabilitados_en=timezone.now())

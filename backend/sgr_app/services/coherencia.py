@@ -194,7 +194,7 @@ def _chequeos_negocio():
          ), 'Revisar: hoy el sistema lo impide, son casos anteriores a la regla.'),
         ('evidencia.sin_hash', INFO, 'Evidencias con archivo pero sin SHA-256 del contenido',
          Evidencia.objects.filter(Q(hash_sha256__isnull=True) | Q(hash_sha256=''))
-         .filter(Q(archivo_foto__gt='') | Q(archivo_foto_2__gt='') | Q(archivo_foto_3__gt='')),
+         .filter(archivo_foto__gt=''),
          'Cargas anteriores al control de integridad.'),
 
         # Ajustes de incentivo

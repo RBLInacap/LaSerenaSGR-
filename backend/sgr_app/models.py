@@ -2069,12 +2069,12 @@ class Evidencia(models.Model):
     actividad = models.ForeignKey(Actividad, on_delete=models.PROTECT, related_name='evidencias', verbose_name="Actividad Asociada")
     codigo_verificador = models.CharField(max_length=30, unique=True, editable=False, db_index=True)
     archivo = models.FileField(upload_to='evidencias/%Y/%m/', blank=True, null=True, verbose_name="Archivo Adjunto")
+    # Una evidencia = una fotografía con su propio código verificador (CU de
+    # registro: "adjunta hasta tres fotos… les asigna código verificador").
+    # Las columnas archivo_foto_2/_3 y url_foto_simulada_2/_3 se separaron en
+    # evidencias propias en la migración 0047.
     archivo_foto = models.ImageField(upload_to='evidencias/%Y/%m/', blank=True, null=True)
-    archivo_foto_2 = models.ImageField(upload_to='evidencias/%Y/%m/', blank=True, null=True)
-    archivo_foto_3 = models.ImageField(upload_to='evidencias/%Y/%m/', blank=True, null=True)
     url_foto_simulada = models.URLField(max_length=500, blank=True, null=True)
-    url_foto_simulada_2 = models.URLField(max_length=500, blank=True, null=True)
-    url_foto_simulada_3 = models.URLField(max_length=500, blank=True, null=True)
     fecha_evidencia = models.DateField(default=timezone.localdate, blank=True, verbose_name="Fecha de Carga")
     metadatos = models.JSONField(blank=True, null=True, verbose_name="Metadatos (GPS, formato, peso)")
     subido_por = models.ForeignKey(
@@ -2127,29 +2127,7 @@ class Evidencia(models.Model):
             return self.url_foto_simulada
         return '/static/img/evidencia_terreno_placeholder.svg'
 
-    @property
-    def get_foto_url_2(self):
-        if self.archivos_deshabilitados_en:
-            return ''
-        if self.archivo_foto_2:
-            try:
-                return self.archivo_foto_2.url
-            except Exception:
-                pass
-        return self.url_foto_simulada_2 or ''
-
-    @property
-    def get_foto_url_3(self):
-        if self.archivos_deshabilitados_en:
-            return ''
-        if self.archivo_foto_3:
-            try:
-                return self.archivo_foto_3.url
-            except Exception:
-                pass
-        return self.url_foto_simulada_3 or ''
-
-    CAMPOS_ARCHIVO = ('archivo_foto', 'archivo_foto_2', 'archivo_foto_3')
+    CAMPOS_ARCHIVO = ('archivo_foto',)
 
     def reemplazar(self, usuario):
         """Retira la evidencia de la revisión sin borrarla (queda en el historial)."""
@@ -2224,15 +2202,6 @@ class Evidencia(models.Model):
         return code
 
     generarCodigoVerificador = generar_codigo_verificador
-
-    @property
-    def fotos_adicionales(self):
-        fotos = []
-        if self.get_foto_url_2:
-            fotos.append({'num': 2, 'url': self.get_foto_url_2})
-        if self.get_foto_url_3:
-            fotos.append({'num': 3, 'url': self.get_foto_url_3})
-        return fotos
 
     @property
     def fechaEvidencia(self):

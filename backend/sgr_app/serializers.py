@@ -266,8 +266,7 @@ class EvidenciaSerializer(serializers.ModelSerializer):
     class Meta:
         model = Evidencia
         fields = [
-            'id', 'actividad', 'codigo_verificador', 'archivo_foto', 'archivo_foto_2', 'archivo_foto_3',
-            'url_foto_simulada', 'url_foto_simulada_2', 'url_foto_simulada_3',
+            'id', 'actividad', 'codigo_verificador', 'archivo_foto', 'url_foto_simulada',
             'hash_sha256', 'estado', 'verificador', 'verificador_nombre',
             'fecha_validacion', 'observacion', 'fecha_subida', 'metadatos',
             'subido_por', 'subido_por_nombre', 'archivos_deshabilitados_en',
@@ -282,8 +281,7 @@ class EvidenciaSerializer(serializers.ModelSerializer):
         data = super().to_representation(instance)
         if instance.archivos_deshabilitados_en:
             # Retención vencida: el archivo se conserva, pero ya no se entrega su enlace.
-            for campo in ('archivo_foto', 'archivo_foto_2', 'archivo_foto_3'):
-                data[campo] = None
+            data['archivo_foto'] = None
         return data
 
     def validate(self, attrs):
@@ -299,23 +297,18 @@ class EvidenciaSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({
                 'actividad': 'La actividad está cerrada porque ya tiene una evidencia aprobada.'
             })
-        for campo in ('archivo_foto', 'archivo_foto_2', 'archivo_foto_3'):
-            archivo = attrs.get(campo)
-            if archivo:
-                try:
-                    validar_archivo_evidencia(archivo)
-                except DjangoValidationError as exc:
-                    raise serializers.ValidationError({campo: exc.messages}) from exc
+        archivo = attrs.get('archivo_foto')
+        if archivo:
+            try:
+                validar_archivo_evidencia(archivo)
+            except DjangoValidationError as exc:
+                raise serializers.ValidationError({'archivo_foto': exc.messages}) from exc
         return attrs
 
     def create(self, validated_data):
         request = self.context.get('request')
         subido_por = request.user if request else None
-        archivos = [
-            validated_data[campo]
-            for campo in ('archivo_foto', 'archivo_foto_2', 'archivo_foto_3')
-            if validated_data.get(campo)
-        ]
+        archivos = [validated_data['archivo_foto']] if validated_data.get('archivo_foto') else []
         if archivos:
             validated_data['metadatos'] = {
                 'archivos': [
@@ -329,11 +322,7 @@ class EvidenciaSerializer(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         request = self.context.get('request')
         subido_por = request.user if request else None
-        archivos = [
-            validated_data[campo]
-            for campo in ('archivo_foto', 'archivo_foto_2', 'archivo_foto_3')
-            if validated_data.get(campo)
-        ]
+        archivos = [validated_data['archivo_foto']] if validated_data.get('archivo_foto') else []
         if archivos:
             instance.metadatos = {
                 'archivos': [

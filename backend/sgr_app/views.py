@@ -930,47 +930,34 @@ class ActividadViewSet(BajaLogicaMixin, ConcurrenciaAPIMixin, viewsets.ModelView
     def _crear_actividad_con_evidencia(self, request, serializer, data, fotos_multiples, archivos_individuales):
         actividad = serializer.save()
 
-        # Generar evidencia vinculada de inmediato con su código alfanumérico único
-        foto_archivo = request.FILES.get('archivo_foto')
-        foto_archivo_2 = request.FILES.get('archivo_foto_2')
-        foto_archivo_3 = request.FILES.get('archivo_foto_3')
-        url_simulada = data.get('url_foto_simulada') or ''
-        url_simulada_2 = data.get('url_foto_simulada_2') or ''
-        url_simulada_3 = data.get('url_foto_simulada_3') or ''
-
+        # Cada fotografía es una evidencia con su propio código verificador
+        # (hasta tres por actividad). Se aceptan `fotos` (lista) o los campos
+        # individuales archivo_foto[_2|_3] / url_foto_simulada[_2|_3].
         if fotos_multiples:
-            evidencias = [
-                Evidencia.objects.create(
-                    actividad=actividad,
-                    archivo_foto=foto,
-                    subido_por=request.user,
-                    metadatos=metadatos_archivo_evidencia(foto, request.user),
-                    estado=Evidencia.Estado.PENDIENTE,
-                )
-                for foto in fotos_multiples
-            ]
-            evidencia = evidencias[0]
-        elif archivos_individuales or url_simulada or url_simulada_2 or url_simulada_3:
-            evidencia = Evidencia.objects.create(
-                actividad=actividad,
-                archivo_foto=foto_archivo,
-                archivo_foto_2=foto_archivo_2,
-                archivo_foto_3=foto_archivo_3,
-                subido_por=request.user,
-                metadatos={
-                    'archivos': [
-                        metadatos_archivo_evidencia(archivo, request.user)
-                        for archivo in archivos_individuales
-                    ]
-                },
-                url_foto_simulada=url_simulada,
-                url_foto_simulada_2=url_simulada_2,
-                url_foto_simulada_3=url_simulada_3,
-                estado=Evidencia.Estado.PENDIENTE
-            )
+            casillas = [(foto, '') for foto in fotos_multiples]
         else:
-            # Sin fotografía no se crea evidencia: la actividad queda a la espera de su carga.
-            evidencia = None
+            casillas = [
+                (request.FILES.get(campo_archivo), data.get(campo_url) or '')
+                for campo_archivo, campo_url in (
+                    ('archivo_foto', 'url_foto_simulada'),
+                    ('archivo_foto_2', 'url_foto_simulada_2'),
+                    ('archivo_foto_3', 'url_foto_simulada_3'),
+                )
+            ]
+        evidencias = [
+            Evidencia.objects.create(
+                actividad=actividad,
+                archivo_foto=foto,
+                url_foto_simulada=url,
+                subido_por=request.user,
+                metadatos=metadatos_archivo_evidencia(foto, request.user) if foto else None,
+                estado=Evidencia.Estado.PENDIENTE,
+            )
+            for foto, url in casillas
+            if foto or url
+        ]
+        # Sin fotografía no se crea evidencia: la actividad queda a la espera de su carga.
+        evidencia = evidencias[0] if evidencias else None
 
         registrar_evento_auditoria(
             request,
@@ -981,6 +968,7 @@ class ActividadViewSet(BajaLogicaMixin, ConcurrenciaAPIMixin, viewsets.ModelView
                 'actividad': actividad.actividad_solicitud,
                 'funcionario_id': actividad.funcionario_id,
                 'codigo_evidencia': evidencia.codigo_verificador if evidencia else None,
+                'codigos_evidencias': [e.codigo_verificador for e in evidencias],
             },
         )
         return actividad, evidencia
