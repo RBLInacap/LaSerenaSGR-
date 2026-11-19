@@ -1311,50 +1311,6 @@ class ItemMedicion(models.Model):
     def estado(self, val):
         self.activo = val
 
-
-class VersionConfiguracionPeriodoQuerySet(models.QuerySet):
-    def update(self, **kwargs):
-        raise ValidationError('Las versiones de configuración son inmutables.')
-
-    def delete(self):
-        raise ValidationError('Las versiones de configuración no se pueden eliminar.')
-
-
-class VersionConfiguracionPeriodo(models.Model):
-    periodo = models.ForeignKey(
-        PeriodoMedicion,
-        on_delete=models.PROTECT,
-        related_name='versiones_configuracion',
-    )
-    version = models.CharField(max_length=50)
-    configuracion = models.JSONField()
-    creado_por = models.ForeignKey(
-        'Usuario',
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='versiones_configuracion_periodo',
-    )
-    creado_en = models.DateTimeField(auto_now_add=True)
-    objects = VersionConfiguracionPeriodoQuerySet.as_manager()
-
-    class Meta:
-        ordering = ['periodo_id', 'creado_en']
-        constraints = [
-            models.UniqueConstraint(
-                fields=('periodo', 'version'),
-                name='uniq_period_config_version',
-            ),
-        ]
-
-    def save(self, *args, **kwargs):
-        if self.pk and type(self).objects.filter(pk=self.pk).exists():
-            raise ValidationError('Las versiones de configuración son inmutables.')
-        super().save(*args, **kwargs)
-
-    def delete(self, *args, **kwargs):
-        raise ValidationError('Las versiones de configuración no se pueden eliminar.')
-
     def obtenerCantidadMetas(self) -> int:
         return self.metas_rel.filter(vigencia=True).count() if hasattr(self, 'metas_rel') else 0
 
@@ -1404,6 +1360,10 @@ class VersionConfiguracionPeriodo(models.Model):
         qs = Actividad.objects.filter(
             item_medicion=self,
             anulada=False,
+            fecha_actividad__range=(
+                self.periodo.fecha_inicio,
+                self.periodo.fecha_termino,
+            ),
             evidencias__estado=Evidencia.Estado.APROBADA,
         )
         if funcionario:
@@ -1429,6 +1389,50 @@ class VersionConfiguracionPeriodo(models.Model):
         return round((c * float(self.ponderador)) / 100.0, 2)
 
     calcularPonderado = calcular_ponderado
+
+
+class VersionConfiguracionPeriodoQuerySet(models.QuerySet):
+    def update(self, **kwargs):
+        raise ValidationError('Las versiones de configuración son inmutables.')
+
+    def delete(self):
+        raise ValidationError('Las versiones de configuración no se pueden eliminar.')
+
+
+class VersionConfiguracionPeriodo(models.Model):
+    periodo = models.ForeignKey(
+        PeriodoMedicion,
+        on_delete=models.PROTECT,
+        related_name='versiones_configuracion',
+    )
+    version = models.CharField(max_length=50)
+    configuracion = models.JSONField()
+    creado_por = models.ForeignKey(
+        'Usuario',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='versiones_configuracion_periodo',
+    )
+    creado_en = models.DateTimeField(auto_now_add=True)
+    objects = VersionConfiguracionPeriodoQuerySet.as_manager()
+
+    class Meta:
+        ordering = ['periodo_id', 'creado_en']
+        constraints = [
+            models.UniqueConstraint(
+                fields=('periodo', 'version'),
+                name='uniq_period_config_version',
+            ),
+        ]
+
+    def save(self, *args, **kwargs):
+        if self.pk and type(self).objects.filter(pk=self.pk).exists():
+            raise ValidationError('Las versiones de configuración son inmutables.')
+        super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise ValidationError('Las versiones de configuración no se pueden eliminar.')
 
 
 # =============================================================================
