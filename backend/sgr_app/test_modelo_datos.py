@@ -106,3 +106,38 @@ class AvanceItemMedicionTests(TestCase):
         self.assertEqual(item.calcular_avance(self.funcionario), 1.0)
         self.assertEqual(item.calcular_cumplimiento(self.funcionario), 50.0)
         self.assertEqual(item.calcular_ponderado(self.funcionario), 25.0)
+
+
+class RelacionesSinBorradoEnCascadaTests(TestCase):
+    """Normativa: ninguna relación del SGR puede borrar registros en cadena."""
+
+    def test_ninguna_clave_foranea_usa_cascade(self):
+        from django.apps import apps
+        from django.db import models
+
+        en_cascada = [
+            f'{modelo.__name__}.{campo.name}'
+            for modelo in apps.get_app_config('sgr_app').get_models()
+            for campo in modelo._meta.get_fields()
+            if isinstance(campo, models.ForeignKey)
+            and campo.remote_field.on_delete is models.CASCADE
+        ]
+        self.assertEqual(
+            en_cascada, [],
+            'Usa PROTECT (o SET_NULL) en vez de CASCADE: por normativa nada se elimina.',
+        )
+
+    def test_borrar_una_delegacion_con_actividades_se_rechaza(self):
+        from django.db.models import ProtectedError
+
+        delegacion = Delegacion.objects.create(nombre='Delegación Protegida', codigo='DPRO')
+        funcionario = Usuario.objects.create_user(
+            username='funcionario.protegido',
+            password='TestPassword123!',
+            delegacion=delegacion,
+        )
+        Actividad.objects.create(funcionario=funcionario, delegacion=delegacion)
+
+        with self.assertRaises(ProtectedError):
+            delegacion.delete()
+        self.assertTrue(Actividad.objects.filter(delegacion=delegacion).exists())

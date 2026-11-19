@@ -1237,8 +1237,8 @@ class ItemMedicion(models.Model):
         ('HORA', 'Horas'),
     ]
 
-    cargo = models.ForeignKey(Cargo, on_delete=models.CASCADE, related_name='items_medicion')
-    periodo = models.ForeignKey(PeriodoMedicion, on_delete=models.CASCADE, related_name='items_medicion')
+    cargo = models.ForeignKey(Cargo, on_delete=models.PROTECT, related_name='items_medicion')
+    periodo = models.ForeignKey(PeriodoMedicion, on_delete=models.PROTECT, related_name='items_medicion')
     nombre_item = models.CharField(max_length=150, verbose_name="Nombre del Ítem")
     descripcion = models.TextField(blank=True, null=True, verbose_name="Descripción de la Prestación")
     tipo_unidad = models.CharField(max_length=20, choices=TIPO_UNIDAD_CHOICES, default='UNIDAD', verbose_name="Unidad de Medida")
@@ -1461,8 +1461,8 @@ class Actividad(models.Model):
         related_name='actividades_anuladas',
     )
     motivo_anulacion = models.TextField(blank=True, default='')
-    funcionario = models.ForeignKey(Usuario, on_delete=models.CASCADE, related_name='actividades', verbose_name="Funcionario Ejecutor")
-    delegacion = models.ForeignKey(Delegacion, on_delete=models.CASCADE, related_name='actividades')
+    funcionario = models.ForeignKey(Usuario, on_delete=models.PROTECT, related_name='actividades', verbose_name="Funcionario Ejecutor")
+    delegacion = models.ForeignKey(Delegacion, on_delete=models.PROTECT, related_name='actividades')
     item = models.ForeignKey(ItemMedicion, on_delete=models.SET_NULL, null=True, blank=True, related_name='actividades', verbose_name="Ítem Catálogo")
     item_medicion = models.ForeignKey(ItemMedicion, on_delete=models.SET_NULL, null=True, blank=True, related_name='actividades_legacy')
     catalogo_servicio = models.ForeignKey(CatalogoServicio, on_delete=models.SET_NULL, null=True, blank=True, related_name='actividades')
@@ -1734,8 +1734,8 @@ class CompromisoAgenda(models.Model):
     origen = models.CharField(max_length=100, default='Vecino', verbose_name="Origen del Compromiso")
     solicitante = models.CharField(max_length=150, help_text="Nombre anonimizado de vecino u organización")
     territorio = models.CharField(max_length=150, default='La Serena', verbose_name="Territorio / Sector")
-    delegacion = models.ForeignKey(Delegacion, on_delete=models.CASCADE, related_name='compromisos')
-    responsable = models.ForeignKey(Usuario, on_delete=models.CASCADE, related_name='compromisos_asignados')
+    delegacion = models.ForeignKey(Delegacion, on_delete=models.PROTECT, related_name='compromisos')
+    responsable = models.ForeignKey(Usuario, on_delete=models.PROTECT, related_name='compromisos_asignados')
     fecha_registro = models.DateTimeField(auto_now_add=True)
     fecha_compromiso = models.DateField(default=timezone.localdate, verbose_name="Fecha Comprometida")
     fecha_comprometida = models.DateField(default=timezone.localdate)
@@ -1744,7 +1744,7 @@ class CompromisoAgenda(models.Model):
     estado = models.CharField(max_length=30, choices=ESTADO_CHOICES, default='PENDIENTE', verbose_name="Estado")
     observacion = models.TextField(blank=True, null=True, verbose_name="Observaciones / Avances")
     observaciones = models.TextField(blank=True, null=True)
-    actividad = models.ForeignKey(Actividad, on_delete=models.CASCADE, null=True, blank=True, related_name='compromisos', verbose_name="Actividad Origen")
+    actividad = models.ForeignKey(Actividad, on_delete=models.PROTECT, null=True, blank=True, related_name='compromisos', verbose_name="Actividad Origen")
     creado_por = models.ForeignKey(Usuario, on_delete=models.SET_NULL, null=True, related_name='compromisos_creados')
     actualizado_en = models.DateTimeField(auto_now=True)
     fecha_realizacion = models.DateTimeField(null=True, blank=True)
@@ -2048,7 +2048,7 @@ class ObservacionCompromiso(models.Model):
 class ComentarioActividad(models.Model):
     actividad = models.ForeignKey(
         Actividad,
-        on_delete=models.CASCADE,
+        on_delete=models.PROTECT,
         related_name='comentarios',
     )
     autor = models.ForeignKey(
@@ -2090,7 +2090,7 @@ class Evidencia(models.Model):
         RECHAZADA = 'RECHAZADA', 'Rechazada'
         CORRECCION = 'CORRECCION', 'Requiere Corrección'
 
-    actividad = models.ForeignKey(Actividad, on_delete=models.CASCADE, related_name='evidencias', verbose_name="Actividad Asociada")
+    actividad = models.ForeignKey(Actividad, on_delete=models.PROTECT, related_name='evidencias', verbose_name="Actividad Asociada")
     codigo_verificador = models.CharField(max_length=30, unique=True, editable=False, db_index=True)
     archivo = models.FileField(upload_to='evidencias/%Y/%m/', blank=True, null=True, verbose_name="Archivo Adjunto")
     archivo_foto = models.ImageField(upload_to='evidencias/%Y/%m/', blank=True, null=True)
@@ -2379,10 +2379,10 @@ class MetaModel(models.Model):
     unidad = models.CharField(max_length=50, default='Atenciones', verbose_name='Unidad de Medida')
     ponderador = models.FloatField(default=25.0, verbose_name='Ponderación (%)')
     vigencia = models.BooleanField(default=True, verbose_name='Vigencia')
-    periodo = models.ForeignKey(PeriodoMedicion, on_delete=models.CASCADE, related_name='metas', verbose_name='Período')
-    item = models.ForeignKey(ItemMedicion, on_delete=models.CASCADE, related_name='metas_rel', null=True, blank=True)
-    funcionario = models.ForeignKey(Usuario, on_delete=models.CASCADE, related_name='metas', null=True, blank=True)
-    delegacion = models.ForeignKey(Delegacion, on_delete=models.CASCADE, related_name='metas', null=True, blank=True)
+    periodo = models.ForeignKey(PeriodoMedicion, on_delete=models.PROTECT, related_name='metas', verbose_name='Período')
+    item = models.ForeignKey(ItemMedicion, on_delete=models.PROTECT, related_name='metas_rel', null=True, blank=True)
+    funcionario = models.ForeignKey(Usuario, on_delete=models.PROTECT, related_name='metas', null=True, blank=True)
+    delegacion = models.ForeignKey(Delegacion, on_delete=models.PROTECT, related_name='metas', null=True, blank=True)
     trimestre = models.PositiveSmallIntegerField(default=3)
     anio = models.PositiveIntegerField(default=2026)
 
@@ -2517,8 +2517,8 @@ class Indicador(models.Model):
     ponderacion = models.FloatField(default=0.0, verbose_name='Ponderación (%)')
     semaforo = models.CharField(max_length=20, default='ROJO', verbose_name='Estado Semáforo')
     fecha_calculo = models.DateField(default=timezone.now, verbose_name='Fecha de Cálculo')
-    meta = models.ForeignKey(MetaModel, on_delete=models.CASCADE, null=True, blank=True, related_name='indicadores', verbose_name='Meta')
-    periodo = models.ForeignKey(PeriodoMedicion, on_delete=models.CASCADE, null=True, blank=True)
+    meta = models.ForeignKey(MetaModel, on_delete=models.PROTECT, null=True, blank=True, related_name='indicadores', verbose_name='Meta')
+    periodo = models.ForeignKey(PeriodoMedicion, on_delete=models.PROTECT, null=True, blank=True)
 
     class Meta:
         db_table = 'Indicadores'
@@ -2622,7 +2622,7 @@ class AjusteIncentivo(models.Model):
     motivo = models.TextField(verbose_name='Motivo del Ajuste')
     valor_porcentaje = models.FloatField(default=0.0, verbose_name='Porcentaje de Ajuste (%)')
     fecha_registro = models.DateTimeField(default=timezone.now, verbose_name='Fecha de Registro')
-    funcionario = models.ForeignKey(Usuario, on_delete=models.CASCADE, related_name='ajustes', verbose_name='Funcionario Evaluado')
+    funcionario = models.ForeignKey(Usuario, on_delete=models.PROTECT, related_name='ajustes', verbose_name='Funcionario Evaluado')
     registrado_por = models.ForeignKey(
         Usuario,
         on_delete=models.SET_NULL,
@@ -2631,7 +2631,7 @@ class AjusteIncentivo(models.Model):
         related_name='ajustes_registrados',
         verbose_name='Responsable del Registro',
     )
-    periodo = models.ForeignKey(PeriodoMedicion, on_delete=models.CASCADE, null=True, blank=True, related_name='ajustes', verbose_name='Período Evaluativo')
+    periodo = models.ForeignKey(PeriodoMedicion, on_delete=models.PROTECT, null=True, blank=True, related_name='ajustes', verbose_name='Período Evaluativo')
     estado = models.CharField(max_length=20, default='PENDIENTE')
     aprobadoPor = models.ForeignKey(Usuario, on_delete=models.SET_NULL, null=True, blank=True, related_name='ajustes_aprobados')
     fechaAprobacion = models.DateTimeField(null=True, blank=True)
@@ -2752,7 +2752,7 @@ class CasoSocial(models.Model):
         blank=True,
         editable=False,
     )
-    delegacion = models.ForeignKey(Delegacion, on_delete=models.CASCADE, related_name='casos_sociales')
+    delegacion = models.ForeignKey(Delegacion, on_delete=models.PROTECT, related_name='casos_sociales')
     fecha_apertura = models.DateField(default=timezone.localdate)
     cerrado = models.BooleanField(default=False)
 
@@ -2865,7 +2865,7 @@ class AtencionSocial(models.Model):
         (2, 'Segunda Gestión / Seguimiento'),
         (3, 'Tercera Gestión / Cierre o Derivación'),
     )
-    caso = models.ForeignKey(CasoSocial, on_delete=models.CASCADE, related_name='atenciones')
+    caso = models.ForeignKey(CasoSocial, on_delete=models.PROTECT, related_name='atenciones')
     etapa = models.PositiveSmallIntegerField(choices=ETAPAS)
     fecha = models.DateField(default=timezone.localdate)
     fecha_visita_programada = models.DateField(null=True, blank=True)
@@ -2890,7 +2890,7 @@ class AtencionSocial(models.Model):
     )
     detalle = models.TextField()
     resultado = models.CharField(max_length=150)
-    funcionario = models.ForeignKey(Usuario, on_delete=models.CASCADE)
+    funcionario = models.ForeignKey(Usuario, on_delete=models.PROTECT)
 
     def clean(self):
         super().clean()
