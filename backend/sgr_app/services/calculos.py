@@ -278,7 +278,7 @@ def calcular_metricas_funcionario(funcionario: Usuario, periodo: PeriodoMedicion
             funcionario=funcionario,
             periodo=periodo,
             estado__in=('APROBADO', 'APLICADO', 'INCENTIVO', 'PENALIZACION'),
-        ).select_related('registrado_por', 'aprobadoPor').order_by('fecha_registro', 'pk')
+        ).select_related('registrado_por', 'aprobado_por').order_by('fecha_registro', 'pk')
         if periodo.pk
         else AjusteIncentivo.objects.none()
     )
@@ -299,9 +299,9 @@ def calcular_metricas_funcionario(funcionario: Usuario, periodo: PeriodoMedicion
                 else 'Responsable no registrado'
             ),
             'aprobado_por': (
-                ajuste.aprobadoPor.get_full_name()
-                or ajuste.aprobadoPor.username
-                if ajuste.aprobadoPor
+                ajuste.aprobado_por.get_full_name()
+                or ajuste.aprobado_por.username
+                if ajuste.aprobado_por
                 else 'Aprobación no registrada'
             ),
             'estado': ajuste.estado,

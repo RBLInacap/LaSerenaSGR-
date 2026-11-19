@@ -90,8 +90,8 @@
                 </td>
                 <td>
                   {% if ajuste.registrado_por %}{{ ajuste.registrado_por.get_full_name|default:ajuste.registrado_por.username }}{% else %}Responsable no registrado{% endif %}
-                  {% if ajuste.aprobadoPor %}
-                  <small class="d-block text-secondary">Revisó: {{ ajuste.aprobadoPor.get_full_name|default:ajuste.aprobadoPor.username }}</small>
+                  {% if ajuste.aprobado_por %}
+                  <small class="d-block text-secondary">Revisó: {{ ajuste.aprobado_por.get_full_name|default:ajuste.aprobado_por.username }}</small>
                   {% endif %}
                 </td>
                 <td>

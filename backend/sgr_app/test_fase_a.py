@@ -144,7 +144,8 @@ class AuditoriaTests(TestCase):
         crear_triggers_auditoria(connection)
         RegistroAuditoria.objects.create(accion='PRUEBA', entidad='X', identificador='1')
 
-        for sql in ("UPDATE Auditorias SET accion = 'ALTERADO'", 'DELETE FROM Auditorias'):
+        tabla = connection.ops.quote_name(RegistroAuditoria._meta.db_table)
+        for sql in (f"UPDATE {tabla} SET accion = 'ALTERADO'", f'DELETE FROM {tabla}'):
             with self.subTest(sql=sql), self.assertRaises(IntegrityError), transaction.atomic():
                 with connection.cursor() as cursor:
                     cursor.execute(sql)

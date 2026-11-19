@@ -9,7 +9,8 @@ def crear(apps, schema_editor):
     # tablas con DELETE. Los triggers se prueban explícitamente en test_fase_a.
     if getattr(settings, 'TESTING', False):
         return
-    crear_triggers_auditoria(schema_editor.connection)
+    # Nombre de la tabla en este punto del historial (se renombra en la 0046).
+    crear_triggers_auditoria(schema_editor.connection, tabla='Auditorias')
 
 
 def eliminar(apps, schema_editor):

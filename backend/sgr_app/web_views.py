@@ -411,10 +411,10 @@ def _snapshot_ajuste(ajuste):
         'valor_porcentaje': ajuste.valor_porcentaje,
         'estado': ajuste.estado,
         'registrado_por_id': ajuste.registrado_por_id,
-        'aprobado_por_id': ajuste.aprobadoPor_id,
+        'aprobado_por_id': ajuste.aprobado_por_id,
         'fecha_aprobacion': (
-            ajuste.fechaAprobacion.isoformat()
-            if ajuste.fechaAprobacion
+            ajuste.fecha_aprobacion.isoformat()
+            if ajuste.fecha_aprobacion
             else None
         ),
     }
@@ -500,7 +500,7 @@ def web_ajustes_incentivo(request):
 
     ajustes = list(
         AjusteIncentivo.objects.filter(periodo=periodo)
-        .select_related('funcionario', 'funcionario__delegacion', 'registrado_por', 'aprobadoPor')
+        .select_related('funcionario', 'funcionario__delegacion', 'registrado_por', 'aprobado_por')
         .order_by('-fecha_registro', '-pk')
     ) if periodo.pk else []
     ajustes_por_id = {}

@@ -8,16 +8,16 @@ Por normativa ningún dato se elimina. Por eso ninguna columna se borra sin una 
 
 | Tabla | Vigente | Heredada | Cómo se mantiene alineada |
 |---|---|---|---|
-| Compromisos | `fecha_comprometida` | `fecha_compromiso` | `CompromisoAgenda.save()` |
-| Compromisos | `observacion` | `observaciones` | `CompromisoAgenda.save()`; de solo lectura en la API |
-| Actividades | `actividad_solicitud` | `solicitud_problema` | `Actividad.save()` |
-| Actividades | `accion_ejecutada` | `accion` | `Actividad.save()` |
-| Actividades | `item_medicion` | `item` | `Actividad.save()` (el heredado nunca completa al vigente) |
+| `sgr_app_compromisoagenda` | `fecha_comprometida` | `fecha_compromiso` | `CompromisoAgenda.save()` |
+| `sgr_app_compromisoagenda` | `observacion` | `observaciones` | `CompromisoAgenda.save()`; de solo lectura en la API |
+| `sgr_app_actividad` | `actividad_solicitud` | `solicitud_problema` | `Actividad.save()` |
+| `sgr_app_actividad` | `accion_ejecutada` | `accion` | `Actividad.save()` |
+| `sgr_app_actividad` | `item_medicion` | `item` | `Actividad.save()` (el heredado nunca completa al vigente) |
 | Actividades ↔ Compromisos | `CompromisoAgenda.actividad` | `Actividad.compromiso_agenda` | A mano en `web_views.py`; lo vigila `verificar_coherencia` |
-| Períodos | `umbral_semaforo_verde` / `_ambar` | `umbral_verde` / `umbral_ambar` | `PeriodoMedicion.save()` |
-| Evidencias | `archivo_foto` | `archivo` | Ya no se escribe; se lee solo como respaldo en cargas antiguas |
-| Evidencias | `fecha_subida` | `fecha_evidencia` | Ambas se fijan al crear la evidencia |
-| Auditoría | `funcionario`, `identificador_registro`, `fecha_auditoria` | `usuario`, `identificador`, `fecha` | `RegistroAuditoria.save()`; registros inmutables |
+| `sgr_app_periodomedicion` | `umbral_semaforo_verde` / `_ambar` | `umbral_verde` / `umbral_ambar` | `PeriodoMedicion.save()` |
+| `sgr_app_evidencia` | `archivo_foto` | `archivo` | Ya no se escribe; se lee solo como respaldo en cargas antiguas |
+| `sgr_app_evidencia` | `fecha_subida` | `fecha_evidencia` | Ambas se fijan al crear la evidencia |
+| `sgr_app_registroauditoria` | `funcionario`, `identificador_registro`, `fecha_auditoria` | `usuario`, `identificador`, `fecha` | `RegistroAuditoria.save()`; registros inmutables |
 
 También hay un sistema de metas paralelo y heredado (`MetaModel` / `Indicador`, tablas `Metas` e `Indicadores`). Se sigue actualizando, pero los tableros calculan con `ItemMedicion` y `services/calculos.py`.
 

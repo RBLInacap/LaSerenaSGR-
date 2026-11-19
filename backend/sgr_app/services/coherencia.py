@@ -212,9 +212,9 @@ def _chequeos_negocio():
          ), 'Corregir el tipo o el concepto.'),
         ('ajuste.decidido_sin_trazabilidad', ADVERTENCIA, 'Ajustes aprobados o rechazados sin responsable o sin fecha',
          AjusteIncentivo.objects.filter(estado__in=('APROBADO', 'RECHAZADO'))
-         .filter(Q(aprobadoPor__isnull=True) | Q(fechaAprobacion__isnull=True)), 'Completar desde la auditoría.'),
+         .filter(Q(aprobado_por__isnull=True) | Q(fecha_aprobacion__isnull=True)), 'Completar desde la auditoría.'),
         ('ajuste.autoaprobado', ADVERTENCIA, 'Ajustes aprobados por el propio funcionario beneficiado',
-         AjusteIncentivo.objects.filter(aprobadoPor_id=F('funcionario_id')), 'Revisar la decisión.'),
+         AjusteIncentivo.objects.filter(aprobado_por_id=F('funcionario_id')), 'Revisar la decisión.'),
 
         # Columnas duplicadas heredadas (ver docs/COLUMNAS_DUPLICADAS.md). Desde la
         # fase 1 el modelo las sincroniza al guardar; esto detecta datos anteriores.

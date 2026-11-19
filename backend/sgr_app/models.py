@@ -163,7 +163,6 @@ class Rol(models.Model):
     permisos = models.JSONField(default=list, blank=True, verbose_name="Permisos")
 
     class Meta:
-        db_table = 'Roles'
         verbose_name = "Rol"
         verbose_name_plural = "Roles"
 
@@ -844,7 +843,6 @@ class Solicitante(models.Model):
     creado_en = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        db_table = 'Solicitantes'
         verbose_name = "Solicitante"
         verbose_name_plural = "Solicitantes"
 
@@ -944,7 +942,6 @@ class PeriodoMedicion(models.Model):
     creado_en = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        db_table = 'Periodos'
         verbose_name = "Período"
         verbose_name_plural = "Períodos"
         ordering = ['-fecha_inicio']
@@ -1252,7 +1249,6 @@ class ItemMedicion(models.Model):
     activo = models.BooleanField(default=True)
 
     class Meta:
-        db_table = 'Items'
         verbose_name = "Ítem"
         verbose_name_plural = "Ítems"
         unique_together = ('cargo', 'periodo', 'nombre_item')
@@ -1502,7 +1498,6 @@ class Actividad(models.Model):
     )
 
     class Meta:
-        db_table = 'Actividades'
         verbose_name = "Actividad"
         verbose_name_plural = "Actividades"
         ordering = ['-fecha_registro']
@@ -1759,7 +1754,6 @@ class CompromisoAgenda(models.Model):
     )
 
     class Meta:
-        db_table = 'Compromisos'
         verbose_name = "Compromiso"
         verbose_name_plural = "Compromisos"
         ordering = ['fecha_comprometida']
@@ -2115,7 +2109,6 @@ class Evidencia(models.Model):
 
     class Meta:
         base_manager_name = 'todas'
-        db_table = 'Evidencias'
         verbose_name = "Evidencia"
         verbose_name_plural = "Evidencias"
 
@@ -2369,7 +2362,6 @@ class MetaModel(models.Model):
     anio = models.PositiveIntegerField(default=2026)
 
     class Meta:
-        db_table = 'Metas'
         verbose_name = 'Meta'
         verbose_name_plural = 'Metas'
 
@@ -2503,7 +2495,6 @@ class Indicador(models.Model):
     periodo = models.ForeignKey(PeriodoMedicion, on_delete=models.PROTECT, null=True, blank=True)
 
     class Meta:
-        db_table = 'Indicadores'
         verbose_name = 'Indicador'
         verbose_name_plural = 'Indicadores'
 
@@ -2615,11 +2606,10 @@ class AjusteIncentivo(models.Model):
     )
     periodo = models.ForeignKey(PeriodoMedicion, on_delete=models.PROTECT, null=True, blank=True, related_name='ajustes', verbose_name='Período Evaluativo')
     estado = models.CharField(max_length=20, default='PENDIENTE')
-    aprobadoPor = models.ForeignKey(Usuario, on_delete=models.SET_NULL, null=True, blank=True, related_name='ajustes_aprobados')
-    fechaAprobacion = models.DateTimeField(null=True, blank=True)
+    aprobado_por = models.ForeignKey(Usuario, on_delete=models.SET_NULL, null=True, blank=True, related_name='ajustes_aprobados')
+    fecha_aprobacion = models.DateTimeField(null=True, blank=True)
 
     class Meta:
-        db_table = 'AjustesIncentivo'
         verbose_name = 'Ajuste de Incentivo / Penalización'
         verbose_name_plural = 'Ajustes de Incentivos / Penalizaciones'
 
@@ -2636,6 +2626,23 @@ class AjusteIncentivo(models.Model):
         if self.concepto_id:
             return self.concepto.naturaleza == ConceptoAjuste.Naturaleza.NEGATIVO
         return self.tipo in {'PENALIZACION', 'DESCUENTO'}
+
+    # Nombres del diagrama de clases (UML); las columnas usan snake_case.
+    @property
+    def aprobadoPor(self):
+        return self.aprobado_por
+
+    @aprobadoPor.setter
+    def aprobadoPor(self, val):
+        self.aprobado_por = val
+
+    @property
+    def fechaAprobacion(self):
+        return self.fecha_aprobacion
+
+    @fechaAprobacion.setter
+    def fechaAprobacion(self, val):
+        self.fecha_aprobacion = val
 
     @property
     def valorPorcentaje(self):
@@ -2678,9 +2685,9 @@ class AjusteIncentivo(models.Model):
             # CU-20: segregación de funciones (maker-checker).
             raise ValueError("Quien registró el ajuste no puede aprobarlo; debe decidirlo otra persona.")
         self.estado = "APROBADO"
-        self.aprobadoPor = funcionarioAprobador
-        self.fechaAprobacion = timezone.now()
-        self.save(update_fields=['estado', 'aprobadoPor', 'fechaAprobacion'])
+        self.aprobado_por = funcionarioAprobador
+        self.fecha_aprobacion = timezone.now()
+        self.save(update_fields=['estado', 'aprobado_por', 'fecha_aprobacion'])
         return True
 
     def rechazarAjuste(self, funcionarioAprobador, motivoRechazo: str = None) -> bool:
@@ -2696,11 +2703,11 @@ class AjusteIncentivo(models.Model):
             # CU-20: segregación de funciones (maker-checker).
             raise ValueError("Quien registró el ajuste no puede rechazarlo; debe decidirlo otra persona.")
         self.estado = "RECHAZADO"
-        self.aprobadoPor = funcionarioAprobador
-        self.fechaAprobacion = timezone.now()
+        self.aprobado_por = funcionarioAprobador
+        self.fecha_aprobacion = timezone.now()
         if motivoRechazo:
             self.motivo += f"\n[RECHAZADO]: {motivoRechazo}"
-        self.save(update_fields=['estado', 'aprobadoPor', 'fechaAprobacion', 'motivo'])
+        self.save(update_fields=['estado', 'aprobado_por', 'fecha_aprobacion', 'motivo'])
         return True
 
     def clean(self):
@@ -3031,7 +3038,6 @@ class RegistroAuditoria(models.Model):
     objects = RegistroAuditoriaQuerySet.as_manager()
 
     class Meta:
-        db_table = 'Auditorias'
         verbose_name = 'Auditoría'
         verbose_name_plural = 'Auditorías'
         ordering = ['-fecha_auditoria']
